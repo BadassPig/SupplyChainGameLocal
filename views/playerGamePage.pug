@@ -1,0 +1,23 @@
+include layout.pug
+
+block content
+	script(src='/javascripts/playerGamePage.js')
+	link(rel='stylesheet', href='/stylesheets/instructorGamePage.css')
+
+	h1= title
+
+	// GAME DATA
+	h2 Current Game
+	
+	form#formGameTable
+		#gameTableBlock
+			table
+				thead
+					th Round
+					th Supply
+					th Cost
+					th Order
+				tbody
+		// / GAME DATA
+		input#submitOrd(type='submit')
+		//button#btnSendOrder Send Order

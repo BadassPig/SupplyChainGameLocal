@@ -1,0 +1,32 @@
+include layout.pug
+
+block content
+	script(src='/javascripts/instructorGamePage.js')
+	link(rel='stylesheet', href='/stylesheets/instructorGamePage.css')
+	h1= title
+
+	// SETUP GAME
+	#formSetupGame
+		form
+			p Number of Groups:
+			input#inputNumberOfGroups(type="text", placeholder="Number of Groups")
+			p Number of Rounds:
+			input#inputNumberOfRounds(type="text", placeholder="Number of Rounds")
+			button#btnStart Start Game
+			button#btnReset Reset Game
+	// / SETUP GAME
+
+	// GAME DATA
+	h2 Current Game
+	#gameTableBlock
+		table#gameTable
+			thead
+				th Round
+				th Player
+				th Supply
+				th Cost
+				th Order
+			tbody
+	// / GAME DATA
+
+	button#btnNextRnd Next Round

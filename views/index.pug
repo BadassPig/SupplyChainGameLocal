@@ -1,0 +1,16 @@
+extends layout
+
+block content
+	head
+		title= title
+	if (!user)
+		form#formLogin(name="login",method="post",action="/login")
+			input#inputUserName(type="text", placeholder="username", name="username" required)
+			br
+			input#inputPassword(type="password", placeholder="password", name="userpassword" required)
+			br
+			button#btnSubmit(type="submit") Login
+		br
+	if (user)
+		p You are currently logged in as #{user.username}
+		a(href="/logout") Logout
