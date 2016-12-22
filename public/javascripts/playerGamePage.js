@@ -5,9 +5,8 @@ var gameData = {name: '',	// player name
 
 // DOM Ready =============================================================
 $(document).ready(function() {
-
-	// TODO name should be passed in.
-	gameData.name = 'testPlayer1';
+	var urlPath = window.location.pathname; //"/playerGamePage/testPlayer1"
+	gameData.name = urlPath.replace('/playerGamePage/', '');
     // At the begining client should fetch game data from server.
     populateGameTable();
     registerActions();
@@ -26,13 +25,36 @@ function registerActions() {
 	        return false;
 	    }
 	});
+
+  $('#logout').on('click', logoutUser);
+
+  // Sever Sent Event
+	var source = new EventSource('/game/ssePlayerGameData');
+	source.addEventListener('message', function(e) {
+        var data = JSON.parse(e.data);
+        //console.log(data);
+        gameData.data = data[gameData.name];
+        populateGameTable();
+      }, false);
+	source.addEventListener('open', function(e) {
+        console.log('EventSource connected');
+      }, false);
+
+    source.addEventListener('error', function(e) {
+        if (e.target.readyState == EventSource.CLOSED) {
+          console.log('E`gventSource disconnected.');
+        }
+        else if (e.target.readyState == EventSource.CONNECTING) {
+          console.log('Connecting to EventSource.');
+        }
+      }, false);
 };
 
 function populateGameTable() {
 	console.debug('Requesting playerTable');
     $.getJSON( '/game/getPlayerTable/' + gameData.name, function( data ) {
     	var gameTableContent;
-    	//console.log('Recived respons from server:' + data);
+    	console.log('Recived respons from server:' + data);
         gameData.data = data;
         // Always get last element of data.
         data.forEach(function(element, index) {
@@ -67,4 +89,14 @@ function sendOrder(event){
             dataType: 'JSON'
         }).done(function( response ) {
         });
+};
+
+function logoutUser(event) {
+  event.preventDefault();
+  console.debug('Logging out user ' + gameData.name);
+  $.ajax({
+            url: '/users/logout/',
+        }).done(function( response ) {
+        window.location.reload();  
+  });
 };

@@ -3,7 +3,9 @@
 var express = require('express');
 var router = express.Router();
 var SSE = require('express-sse');
-var sse = new SSE();
+var sse = new SSE();	// instructor
+var ssePlayer = new SSE(); // sse connection for player.
+var passport = require('passport');
 
 var serverGameStatus = {numPlayer: 0, 
 						numRound: 0,
@@ -46,6 +48,13 @@ router.post('/startGame', function(req, res) {
     //res.playerNames = serverGameStatus.playerList;
     // TODO: think about what need to be echoed back.
     res.send(serverGameStatus);
+    ssePlayer.send(serverGameStatus.playerGameData);
+});
+
+router.post('/resetGame', function(req, res) {
+	console.log('Game data reset.');
+	clearServerGameStatus();
+	res.send({instructorRequestOk: true});
 });
 
 /*
@@ -74,10 +83,26 @@ router.get('/getPlayerTable/:player', function(req, res) {
 		//console.log('Sending data: ' + serverGameStatus.playerGameData[player]);
 		res.send(serverGameStatus.playerGameData[player]);
 	}
-	else
+	else {
 		// Need to handle error correctly
 		throw 'No record in playerGameData for ' + player;
+	}
 });
+
+// authenticate user request.
+// This probably should happen in middleware.
+// router.get('/getPlayerTable/:player', passport.authenticate('local'), function(req, res) {
+// 	var player = req.params.player;
+// 	console.log('Player ' + player + ' just requested game table.');
+// 	if (serverGameStatus.playerGameData.hasOwnProperty(player)) {
+// 		//console.log('Sending data: ' + serverGameStatus.playerGameData[player]);
+// 		res.send(serverGameStatus.playerGameData[player]);
+// 	}
+// 	else {
+// 		// Need to handle error correctly
+// 		throw 'No record in playerGameData for ' + player;
+// 	}
+// });
 
 router.post('/submitOrder/:player', function(req, res) {
 	var player = req.params.player;
@@ -91,21 +116,8 @@ router.post('/submitOrder/:player', function(req, res) {
 	sse.send({player: player, order: order}, 'message');
 });
 
-// SSE
-// router.get('/stream', function(req, res) {
-// 	console.log('Requested stream.');
-// 	res.writeHead(200, {
-// 	    'Content-Type': 'text/event-stream',
-// 	    'Cache-Control': 'no-cache',
-// 	    'Connection': 'keep-alive'
-//   	});
-//   	res.write('\n');
-// 	// res.write("data: " + JSON.stringify({name: 'test'}) + "\n\n");
-// 	// connections.push(res);
-// });
-
 router.get('/stream', sse.init);
 
-// / SSE
+router.get('/ssePlayerGameData', ssePlayer.init);
 
 module.exports = router;

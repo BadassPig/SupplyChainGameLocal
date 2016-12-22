@@ -109,7 +109,16 @@ function resetGame(event) {
 	var r = confirm('Reset game will lose all current game data.');
 	if (r === true) {
 		console.log('Reset game button clicked.');
-		window.location.reload();
+		$.ajax({
+            type: 'POST',
+            data: gameData,
+            url: '/game/resetGame',
+            dataType: 'JSON'
+        }).done(function( response ) {
+        	if (response.instructorRequestOk === true) {
+        		window.location.reload();
+        	}
+        });
 	}
 };
 
