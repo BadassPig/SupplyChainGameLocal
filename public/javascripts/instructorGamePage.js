@@ -1,6 +1,6 @@
 // Game page from instructor's perspective
 // This is a single page application.
-var gameData = {};
+var gameData = {submittedCounter : 0};
 
 // DOM Ready =============================================================
 $(document).ready(function() {
@@ -19,12 +19,29 @@ function registerActions() {
 
 	var source = new EventSource('/game/stream');
 	source.addEventListener('message', function(e) {
+        if (!e)
+          return ;
         var data = JSON.parse(e.data);
         var cr = gameData.serverGameData.currentRound;
         var player = data.player;
         var order = data.order;
-        console.log(data);
-        $('#tdOrderId3').html(order);
+        var counter = gameData.serverGameData.currentRound * gameData.numPlayers;
+        $.each(gameData.serverGameData.playerGameData, function(index, value) {
+          if (index === player) {
+            console.log('Updating td ' + '#tdOrderId' + counter);
+            $('#tdOrderId' + counter).html(order);
+            gameData.submittedCounter ++;
+            return false;
+          }
+          counter ++;
+        });
+        console.log('Submitted counter: ' + gameData.submittedCounter);
+        console.log('num players : ' + gameData.numPlayers);
+        if (gameData.submittedCounter == gameData.numPlayers && gameData.serverGameData.currentRound < gameData.numRounds) {
+          console.log('All players have submitted orders.');
+          $('#btnNextRnd').prop("disabled", false);
+        }
+        //$('#tdOrderId3').html(order);
       }, false);
 	source.addEventListener('open', function(e) {
         console.log('EventSource connected');
@@ -45,7 +62,7 @@ function populateGameTable(response) {
 	var gameTableContent;
 	//console.log(gameData);
 	console.log(response.playerGameData);
-	var counter = response.currentRound * 3;
+	var counter = response.currentRound * gameData.numPlayers;
 	$.each(response.playerGameData, function(index, value)  {
 		//console.log('index2: ' + index2 + ', value2: ' + value2);
 		var playerGameDisp = value[response.currentRound];
@@ -111,7 +128,7 @@ function resetGame(event) {
 		console.log('Reset game button clicked.');
 		$.ajax({
             type: 'POST',
-            data: gameData,
+            data: {},
             url: '/game/resetGame',
             dataType: 'JSON'
         }).done(function( response ) {
@@ -131,6 +148,8 @@ function nextRound(event) {
         url: '/game/nextRound',
         dataType: 'JSON'
     }).done(function( response ) {
+      console.log('Next round successful.');
+      gameData.submittedCounter = 0;
     	if (response.instructorRequestOk === true) {
     		gameData.serverGameData = response;
     		//gameData.serverGameData.currentRound ++;

@@ -27,23 +27,29 @@ router.get('/instructorGamePage', function(req, res, next) {
 //   })(req, res, next);
 // });
 
-router.get('/playerGamePage/:player', function(req, res, next) {
-  if (!req.isAuthenticated()) {
-    console.log('Retrieving player page for user ' + req.params.player + ' can\'t be aunthenticated, back to login page');
-    res.redirect('/');
-    return ;
-  }
-  // Doesn't matter what player page the user requests, direct to his page!
-  console.log(req.session.passport);
-  var player = req.session.passport.user[0].userName;
-  console.log('Page for ' + player);
-  res.render('playerGamePage', { title: player + ' Game Page' });
-});
-
+/*
+ * Routes for player when requesting game page. Validation added.
+ */
 // router.get('/playerGamePage/:player', function(req, res, next) {
-//     res.render('playerGamePage', { title: req.params.player + ' Game Page' });
+//   if (!req.isAuthenticated()) {
+//     console.log('Retrieving player page for user ' + req.params.player + ' can\'t be aunthenticated, back to login page');
+//     res.redirect('/');
+//     return ;
 //   }
-// );
+//   // Doesn't matter what player page the user requests, direct to his page!
+//   console.log(req.session.passport);
+//   var player = req.session.passport.user[0].userName;
+//   console.log('Page for ' + player);
+//   res.render('playerGamePage', { title: player + ' Game Page' });
+// });
+
+/*
+ * Routes for player when requesting game page. No validation. (For speedy test)
+ */
+router.get('/playerGamePage/:player', function(req, res, next) {
+    res.render('playerGamePage', { title: req.params.player + ' Game Page' });
+  }
+);
 
 router.get('/', function(req, res, next) {
   console.log('/ session:');
