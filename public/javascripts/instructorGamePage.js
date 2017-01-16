@@ -1,6 +1,11 @@
 // Game page from instructor's perspective
 // This is a single page application.
-var gameData = {submittedCounter : 0};
+var gameData = {
+  submittedCounter : 0,
+  numPlayers : 0,
+  numRounds : 0
+  };
+var instructorID = 'instructor1'; // TODO: this should be sent from server.
 
 // DOM Ready =============================================================
 $(document).ready(function() {
@@ -8,6 +13,7 @@ $(document).ready(function() {
     // Populate the user table on initial page load
     // At the begining client should fetch game data from server.
     //populateGameTable();
+    getGameStatus(); // If a game has already begun, get game data.
     registerActions();
 });
 
@@ -17,6 +23,7 @@ function registerActions() {
 	$('#btnNextRnd').on('click', nextRound);
 	$('#btnNextRnd').prop("disabled", true);
 
+  // Event source related
 	var source = new EventSource('/game/stream');
 	source.addEventListener('message', function(e) {
         if (!e)
@@ -37,10 +44,11 @@ function registerActions() {
         });
         console.log('Submitted counter: ' + gameData.submittedCounter);
         console.log('num players : ' + gameData.numPlayers);
-        if (gameData.submittedCounter == gameData.numPlayers && gameData.serverGameData.currentRound < gameData.numRounds) {
-          console.log('All players have submitted orders.');
-          $('#btnNextRnd').prop("disabled", false);
-        }
+        enableNextRoundBtn(true);
+        // if (gameData.submittedCounter == gameData.numPlayers && gameData.serverGameData.currentRound < gameData.numRounds) {
+        //   console.log('All players have submitted orders.');
+        //   $('#btnNextRnd').prop("disabled", false);
+        // }
         //$('#tdOrderId3').html(order);
       }, false);
 	source.addEventListener('open', function(e) {
@@ -57,31 +65,60 @@ function registerActions() {
       }, false);
 };
 
-// Display game table
-function populateGameTable(response) {
+function getGameStatus() {
+  $.getJSON( '/game/instructorGetGameData', {instructor: instructorID}, function( data ) {
+    gameData.serverGameData = data;
+    if (data.playerList.length) {
+      gameData.numPlayers = gameData.serverGameData.numPlayer;
+      gameData.numRounds = gameData.serverGameData.numRound;
+      gameData.submittedCounter = gameData.numPlayers;
+      $('#inputNumberOfGroups').val(gameData.numPlayers);
+      $('#inputNumberOfRounds').val(gameData.numRounds);
+      populateGameTable(gameData.serverGameData);
+    }
+  });
+}
+
+/*
+ * Display content in game table
+  @response game data
+  @all boolean, display all data or just current round data 
+ */
+function populateGameTable(response, all) {
 	var gameTableContent;
 	//console.log(gameData);
 	console.log(response.playerGameData);
 	var counter = response.currentRound * gameData.numPlayers;
-	$.each(response.playerGameData, function(index, value)  {
-		//console.log('index2: ' + index2 + ', value2: ' + value2);
-		var playerGameDisp = value[response.currentRound];
-		//console.log(index + ': ' + playerGameDisp);
-	    gameTableContent += '<tr>';
-        gameTableContent += '<td>' + response.currentRound + '</td>';	// Round
-        gameTableContent += '<td>' + index + '</td>';	// Player
-        gameTableContent += '<td>' + playerGameDisp.supply + '</td>';	//supply
-        gameTableContent += '<td>' + playerGameDisp.cost + '</td>';	// cost
+  for (var i = 0; i <= response.currentRound; ++ i) {
+    $.each(response.playerGameData, function(index, value) {  // @index: playerID, @value: array of game data.
+      //console.log('index2: ' + index2 + ', value2: ' + value2);
+      // TODO: this could be optimized
+        var playerGameDisp = value[i];
+        //console.log(index + ': ' + playerGameDisp);
+        gameTableContent += '<tr>';
+        gameTableContent += '<td>' + response.currentRound + '</td>'; // Round
+        gameTableContent += '<td>' + index + '</td>'; // Player
+        gameTableContent += '<td>' + playerGameDisp.demand + '</td>'; // Demand
         var tdOrderId = counter ++;
-        gameTableContent += '<td id="tdOrderId' + tdOrderId + '">' + playerGameDisp.order + '</td>';	// order
+        gameTableContent += '<td id="tdOrderId' + tdOrderId + '">' + playerGameDisp.order + '</td>';  // order
+        gameTableContent += '<td>' + playerGameDisp.ration + '</td>'; // Ration
+        gameTableContent += '<td>' + playerGameDisp.sales + '</td>';  // Sales
+        gameTableContent += '<td>' + playerGameDisp.lostSales + '</td>';  // Lost Sales
+        gameTableContent += '<td>' + playerGameDisp.surplusInv + '</td>';  // Surplus Inventory
+        gameTableContent += '<td>' + playerGameDisp.profit + '</td>';  // profit
+        gameTableContent += '<td>' + playerGameDisp.cumuProfit + '</td>'; // Cumulative Profit
         gameTableContent += '</tr>';
-	});
+    });
+  }
+
 	//$('#gameTable table tbody').html(gameTableContent);
 	$('#gameTableBlock table tbody').append(gameTableContent);
 	// Disable start game button.
 	$('#formSetupGame #btnStart').prop('disabled', true);
-	$('#formSetupGame #inputNumberOfGroups').prop('disabled', true);
-	$('#formSetupGame #inputNumberOfRounds').prop('disabled', true);
+	$('#inputNumberOfGroups').prop('disabled', true);
+	$('#inputNumberOfRounds').prop('disabled', true);
+  $('#selectAllocationRule').prop('disabled', true);
+  enableNextRoundBtn();
 };
 
 function startGame(event) {
@@ -159,4 +196,12 @@ function nextRound(event) {
 
     	}
     });
+};
+
+function enableNextRoundBtn(eventSource) {  // @ eventSource function called from event source
+  if (gameData.submittedCounter >= gameData.numPlayers && gameData.serverGameData.currentRound < gameData.numRounds) {
+    if (eventSource)
+      console.log('All players have submitted orders.');
+    $('#btnNextRnd').prop("disabled", false);
+  }
 };

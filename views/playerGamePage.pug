@@ -9,16 +9,21 @@ block content
 
 	// GAME DATA
 	h2 Current Game
+
+	include commonGameTable.pug
+	input#btnSubmitOrd(type='submit')
+	p#pErr
 	
-	form#formGameTable
-		#gameTableBlock
-			table
-				thead
-					th Round
-					th Supply
-					th Cost
-					th Order
-				tbody
+	// Include game table from commonGameTable.pug
+	//form#formGameTable
+	//	#gameTableBlock
+	//		table
+	//			thead
+	//				th Round
+	//				th Supply
+	//				th Cost
+	//				th Order
+	//			tbody
 		// / GAME DATA
-		input#submitOrd(type='submit')
+	//	input#submitOrd(type='submit')
 		//button#btnSendOrder Send Order

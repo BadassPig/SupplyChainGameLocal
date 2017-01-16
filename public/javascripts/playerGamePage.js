@@ -7,16 +7,17 @@ var gameData = {name: '',	// player name
 $(document).ready(function() {
 	var urlPath = window.location.pathname; //"/playerGamePage/testPlayer1"
 	gameData.name = urlPath.replace('/playerGamePage/', '');
-    // At the begining client should fetch game data from server.
-    populateGameTable();
-    registerActions();
+  // At the begining client should fetch game data from server.
+  $('#gameTable th:nth-child(2)').hide();  // hide player column
+  populateGameTable();
+  registerActions();
 });
 
 function registerActions() {
-	//$('#btnSendOrder').prop("disabled", true);
+	//$('#btnSubmitOrd').prop("disabled", true);
 
-	//$('#btnSendOrder').on('click', sendOrder);
-	$('form').submit(sendOrder);
+	$('#btnSubmitOrd').on('click', sendOrder);
+	//$('form').submit(sendOrder);
 
 	$("form").bind("keypress", function (e) {
 	    if (e.keyCode == 13) {
@@ -64,10 +65,15 @@ function populateGameTable() {
       	gameTableContent += '<tr>';
         gameTableContent += '<td>' + index + '</td>';	// Round
         //gameTableContent += '<td>' + gameData.name + '</td>';	// Player
-        gameTableContent += '<td>' + element.supply + '</td>';	//supply
-        gameTableContent += '<td>' + element.cost + '</td>';	// cost
+        gameTableContent += '<td>' + element.demand + '</td>';	// Demand
         gameTableContent += '<td><input id="input' + index + '" type="number" min="0" form="formGameTable" value="' + (element.order ? element.order : '') + '" disabled required></td>';	// order	        
         gameData.openInput = !element.order ? index : gameData.openInput;
+        gameTableContent += '<td>' + element.ration + '</td>';  // Ration
+        gameTableContent += '<td>' + element.sales + '</td>';  // Sales
+        gameTableContent += '<td>' + element.lostSales + '</td>';  // lost sales
+        gameTableContent += '<td>' + element.surplusInv + '</td>';  // Surplus Inventory
+        gameTableContent += '<td>' + element.profit + '</td>';  // Profit
+        gameTableContent += '<td>' + element.cumuProfit + '</td>';  // Cumulative Profit
         gameTableContent += '</tr>';
       });
       // Append vs replace everything in table
@@ -75,9 +81,9 @@ function populateGameTable() {
       $('#gameTableBlock table tbody').html(gameTableContent);
       if (gameData.openInput !== -1) {
       	$('input[id="input' + gameData.openInput + '"]').prop('disabled', false);
-      	$('#formGameTable #submitOrd').prop('disabled', false);
+      	$('#btnSubmitOrd').prop('disabled', false);
       } else
-      	$('#formGameTable #submitOrd').prop('disabled', true);
+      	$('#btnSubmitOrd').prop('disabled', true);
     });
 };
 
@@ -86,6 +92,11 @@ function sendOrder(event){
 	//console.log('Submit order clicked!');
 	var orderData = {newOrder : 0};
 	orderData.newOrder = $('input[id="input' + gameData.openInput + '"]').val();
+  if (!orderData.newOrder || orderData.newOrder < 0) {
+    $('#pErr').text('Order needs to be set and greater than 0.0');
+    return ;
+  } else
+    $('#pErr').text('');
 
   $.ajax({
     type : 'POST',
@@ -96,7 +107,7 @@ function sendOrder(event){
       // For some reason this is not called.
       //console.log('Submit successful!.');
       $('input[id="input' + gameData.openInput + '"]').prop('disabled', true);
-      $('#formGameTable #submitOrd').prop('disabled', true);
+      $('#btnSubmitOrd').prop('disabled', true);
     }).fail(function(res) {
       console.log('Submit order failed?');
     });

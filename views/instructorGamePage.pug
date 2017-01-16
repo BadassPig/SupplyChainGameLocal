@@ -8,25 +8,38 @@ block content
 	// SETUP GAME
 	#formSetupGame
 		form
-			p Number of Groups:
+			|Number of Groups: 
 			input#inputNumberOfGroups(type="text", placeholder="Number of Groups")
-			p Number of Rounds:
+			br
+			|Number of Rounds: 
 			input#inputNumberOfRounds(type="text", placeholder="Number of Rounds")
+			br
+			|Allocation: 
+			select#selectAllocationRule
+				option(value="Proportion") Proportion
+				option(value="Rule#2") Rule#2
+			br
 			button#btnStart Start Game
 			button#btnReset Reset Game
-	// / SETUP GAME
+	// / #formSetupGame
 
 	// GAME DATA
 	h2 Current Game
-	#gameTableBlock
-		table#gameTable
-			thead
-				th Round
-				th Player
-				th Supply
-				th Cost
-				th Order
-			tbody
+	include commonGameTable.pug
+	//#gameTableBlock
+	//	table#gameTable
+	//		thead
+	//			th Period
+	//			th Player
+	//			th Demand
+	//			th Order
+	//			th Ration
+	//			th Sales
+	//			th Lost Sales
+	//			th Surplus Inventory
+	//			th Profit
+	//			th Cumulative Profit
+	//		tbody
 	// / GAME DATA
 
 	button#btnNextRnd Next Round
