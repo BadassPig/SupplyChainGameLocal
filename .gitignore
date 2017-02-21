@@ -49,3 +49,5 @@ Temporary Items
 # Folders to ignore
 data/
 node_modules/
+journal/
+bin/

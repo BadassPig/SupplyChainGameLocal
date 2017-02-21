@@ -64,7 +64,6 @@ router.post('/login',
 /*
  * Non passport way of login.
  */
-
 // router.post('/login',
 //     function(req, res) {
 //         const collection = req.db.get('userlist');

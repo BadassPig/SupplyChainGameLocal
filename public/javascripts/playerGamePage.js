@@ -14,7 +14,7 @@ $(document).ready(function() {
 });
 
 function registerActions() {
-	//$('#btnSubmitOrd').prop("disabled", true);
+	$('#btnSubmitOrd').prop("disabled", true);
 
 	$('#btnSubmitOrd').on('click', sendOrder);
 	//$('form').submit(sendOrder);
@@ -60,6 +60,7 @@ function populateGameTable() {
       // console.log('Received response from server:');
       // console.log(data);
       gameData.data = data;
+      gameData.openInput = -1;
       // Always get last element of data.
       data.forEach(function(element, index) {
       	gameTableContent += '<tr>';
@@ -84,6 +85,8 @@ function populateGameTable() {
       	$('#btnSubmitOrd').prop('disabled', false);
       } else
       	$('#btnSubmitOrd').prop('disabled', true);
+    }).fail(function() {
+      $('#btnSubmitOrd').prop('disabled', true);
     });
 };
 

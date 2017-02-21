@@ -20,8 +20,12 @@ $(document).ready(function() {
 function registerActions() {
 	$('#formSetupGame #btnStart').on('click', startGame);
 	$('#formSetupGame #btnReset').on('click', resetGame);
+  $('#formSetupGame #btnEnd').on('click', endGame);
 	$('#btnNextRnd').on('click', nextRound);
+  $('#btnCalc').on('click', calculate);
 	$('#btnNextRnd').prop("disabled", true);
+  $('#btnCalc').prop("disabled", true);
+  $('#btnEnd').prop("disabled", true);
 
   // Event source related
 	var source = new EventSource('/game/stream');
@@ -35,7 +39,7 @@ function registerActions() {
         var counter = gameData.serverGameData.currentRound * gameData.numPlayers;
         $.each(gameData.serverGameData.playerGameData, function(index, value) {
           if (index === player) {
-            console.log('Updating td ' + '#tdOrderId' + counter);
+            console.log('Updating td ' + '#tdOrderId' + counter + ' for ' + player);
             $('#tdOrderId' + counter).html(order);
             gameData.submittedCounter ++;
             return false;
@@ -69,8 +73,8 @@ function getGameStatus() {
   $.getJSON( '/game/instructorGetGameData', {instructor: instructorID}, function( data ) {
     gameData.serverGameData = data;
     if (data.playerList.length) {
-      gameData.numPlayers = gameData.serverGameData.numPlayer;
-      gameData.numRounds = gameData.serverGameData.numRound;
+      gameData.numPlayers = parseInt(gameData.serverGameData.numPlayer);
+      gameData.numRounds = parseInt(gameData.serverGameData.numRound);
       gameData.submittedCounter = gameData.numPlayers;
       $('#inputNumberOfGroups').val(gameData.numPlayers);
       $('#inputNumberOfRounds').val(gameData.numRounds);
@@ -88,7 +92,8 @@ function populateGameTable(response, all) {
 	var gameTableContent;
 	//console.log(gameData);
 	console.log(response.playerGameData);
-	var counter = response.currentRound * gameData.numPlayers;
+	//var counter = response.currentRound * gameData.numPlayers;
+  var counter = 0;
   for (var i = 0; i <= response.currentRound; ++ i) {
     $.each(response.playerGameData, function(index, value) {  // @index: playerID, @value: array of game data.
       //console.log('index2: ' + index2 + ', value2: ' + value2);
@@ -96,7 +101,7 @@ function populateGameTable(response, all) {
         var playerGameDisp = value[i];
         //console.log(index + ': ' + playerGameDisp);
         gameTableContent += '<tr>';
-        gameTableContent += '<td>' + response.currentRound + '</td>'; // Round
+        gameTableContent += '<td>' + i + '</td>'; // Round
         gameTableContent += '<td>' + index + '</td>'; // Player
         gameTableContent += '<td>' + playerGameDisp.demand + '</td>'; // Demand
         var tdOrderId = counter ++;
@@ -111,8 +116,8 @@ function populateGameTable(response, all) {
     });
   }
 
-	//$('#gameTable table tbody').html(gameTableContent);
-	$('#gameTableBlock table tbody').append(gameTableContent);
+	$('#gameTable tbody').html(gameTableContent);
+	//$('#gameTableBlock table tbody').append(gameTableContent);
 	// Disable start game button.
 	$('#formSetupGame #btnStart').prop('disabled', true);
 	$('#inputNumberOfGroups').prop('disabled', true);
@@ -149,6 +154,8 @@ function startGame(event) {
         		populateGameTable(gameData.serverGameData);
         		// Maybe this logic can be put somewhere else. This is only for first round
         		$('#btnNextRnd').prop("disabled", false);
+            //$('#btnCalc').prop("disabled", false);
+            $('#btnEnd').prop("disabled", false);
         	} else {
         		alert(response.gameStartErr);
         	}
@@ -176,6 +183,24 @@ function resetGame(event) {
 	}
 };
 
+function endGame(event) {
+  event.preventDefault();
+  var r = confirm('End game?');
+  if (r === true) {
+    $.ajax({
+      type : 'POST',
+      data : {},
+      url: '/game/endGame',
+      dataType : 'JSON'
+    }).done( function (response) {
+      console.log('Game ended.');
+      $('#btnNextRnd').prop("disabled", true);
+      $('#btnCalc').prop("disabled", true);
+      $('#btnEnd').prop("disabled", true);
+    });
+  }
+};
+
 function nextRound(event) {
 	event.preventDefault();
 
@@ -192,16 +217,43 @@ function nextRound(event) {
     		//gameData.serverGameData.currentRound ++;
     		populateGameTable(gameData.serverGameData);
     		$('#btnNextRnd').prop("disabled", true);
+        $('#btnCalc').prop("disabled", true);
     	} else {
 
     	}
     });
 };
 
+function calculate(event) {
+  event.preventDefault();
+
+  $.ajax({
+        type: 'POST',
+        data: {},
+        url: '/game/calculate',
+        dataType: 'JSON'
+    }).done(function( response ) {
+      gameData.submittedCounter = 0;
+      if (response.instructorRequestOk === true) {
+        gameData.serverGameData = response;
+        //gameData.serverGameData.currentRound ++;
+        populateGameTable(gameData.serverGameData);
+        if (gameData.serverGameData.currentRound < gameData.numRounds)
+          $('#btnNextRnd').prop("disabled", false);
+        $('#btnCalc').prop("disabled", true);
+      } else {
+
+      }
+    });
+};
+
 function enableNextRoundBtn(eventSource) {  // @ eventSource function called from event source
-  if (gameData.submittedCounter >= gameData.numPlayers && gameData.serverGameData.currentRound < gameData.numRounds) {
+  var cRnd = gameData.serverGameData.currentRound;
+  if (gameData.submittedCounter >= gameData.numPlayers && cRnd <= gameData.numRounds) {
     if (eventSource)
       console.log('All players have submitted orders.');
-    $('#btnNextRnd').prop("disabled", false);
+    //$('#btnNextRnd').prop("disabled", cRnd == gameData.numRounds);
+    if (!gameData.serverGameData.currentRoundCalculated)
+      $('#btnCalc').prop("disabled", false);
   }
 };

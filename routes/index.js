@@ -44,7 +44,7 @@ router.get('/instructorGamePage', function(req, res, next) {
 // });
 
 /*
- * Routes for player when requesting game page. No validation. (For speedy test)
+ * Routes for player when requesting game page. No validation. (For speedy test; for validation use the code above)
  */
 router.get('/playerGamePage/:player', function(req, res, next) {
     res.render('playerGamePage', { title: req.params.player + ' Game Page' });

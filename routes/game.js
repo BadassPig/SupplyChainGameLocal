@@ -1,9 +1,17 @@
-// This is the server side (more like expressjs) javascript. This file is not run on client side
+// This is the server side (more like expressjs) javascript. This file is not run on client side. It handles request from both instructor and player
+// For now only consider single instructor session.
+
+// TODO
+// Make game data per instructor
+// When game ends, save game data to DB
+// The way of creating multiple players is a bit naive, it's going to be more complicated when multiple instructor plays the game simutaneously
+// SSE is also going to get complicated for multi-instructor case.
+
 
 var express = require('express');
 var router = express.Router();
 var SSE = require('express-sse');
-var sse = new SSE();	// instructor
+var sse = new SSE();	// SSE connection for instructor
 var ssePlayer = new SSE(); // sse connection for player.
 var passport = require('passport');
 
@@ -14,27 +22,43 @@ var serverGameStatus = {
   numPlayer: 0, 
 	numRound: 0,
 	currentRound: 0,
+  currentRoundCalculated : false,
 	instructorRequestOk: false,
 	playerList: [],
-	playerGameData: {},	// playerName : [round Data], [round data] is an array of obects
+	playerGameData: {},	// playerName : [round Data]. [round data] is an array of objects
   setPlayerOrder(player, order, round) {  // set the order for player
     var currentRound = !round ? this.currentRound : round;
-    if (!this.playerGameData.hasOwnProperty(player))
+    if (!this.playerGameData.hasOwnProperty(player) || this.playerGameData[player].length < currentRound)
       return ;
-    if (this.playerGameData[player].length < currentRound)
-      return ;
-    //console.log((this.playerGameData[player])[currentRound]);
     (this.playerGameData[player])[currentRound].order = order;
+  },
+  clear() { // There might be a better way in JS to do this.
+    this.numPlayer = 0;
+    this.numRound = 0;
+    this.currentRound = 0;
+    this.currentRoundCalculated = false;
+    this.instructorRequestOk = false;
+    this.playerList = [];
+    this.playerGameData = {};
   }
 };	// keep a record at server. In the future this should be per session.
 
+var gameParam = {
+  totalSupply : 20,
+  salePrice : 10,
+  cost : 2,
+  getProfit : function () {
+    return this.salePrice - this.cost;
+  }
+};
+
 function clearServerGameStatus() {
-	serverGameStatus.numPlayer = 0;
-	serverGameStatus.numRound = 0;
-	serverGameStatus.currentRound = 0;
-	serverGameStatus.playerList = [];
-	serverGameStatus.playerGameData = {};
+  serverGameStatus.clear();
 }
+
+/*
+ * Instructor HTTP request handle START
+ */
 
 /*
  * Get game data. In case instructor refresh page during the game.
@@ -45,15 +69,14 @@ function clearServerGameStatus() {
   res.send(serverGameStatus);
  });
 
+ router.get('/stream', sse.init);
+
 /*
  * POST to start game.
  */
- // In the future might want to distinguish by session ids rather than instructor ids.
 router.post('/startGame', function(req, res) {
     //var db = req.db;
     //console.log('Received game start request.');
-    // TODO: 1. record this game 2. ACK back client (instructor game page)
-    // 3. There should be a list of players, server should communicate with them as well.
     clearServerGameStatus();
     serverGameStatus.numPlayer = req.body.numPlayers;
     serverGameStatus.numRound = req.body.numRounds;
@@ -79,27 +102,11 @@ router.post('/resetGame', function(req, res) {
 	res.send({instructorRequestOk: true});
 });
 
-/*
- * Game number generator, this is at the beginning of round
- */
- function gameGen(serverGameStatus) {
- 	//console.log('In gameGen()');
-  var isDemoRound = serverGameStatus.currentRound === 0;
- 	for (var player in serverGameStatus.playerGameData) {
- 		serverGameStatus.playerGameData[player].push({
-              demand: isDemoRound ? 8.59 : (function () {
-                return (Math.random() * 10) + 5;
-              })().toFixed(2),
-              ration: isDemoRound ? 12.5 : '',
-              sales: isDemoRound ? 8.59 : '',
-              lostSales: isDemoRound ? 0 : '',
-              surplusInv: isDemoRound ? 3.91 : '',
-              profit: isDemoRound ? 60.90 : '',
-              cumuProfit: isDemoRound ? 60.90 : '',
-              order: isDemoRound ? 12.5 : ''});
- 	}
- };
-
+router.post('/endGame', function(req, res) {
+  console.log('End game requested.');
+  clearServerGameStatus();
+  res.send({instructorRequestOk: true});
+});
 
 /*
  * POST to go to next round.
@@ -111,6 +118,23 @@ router.post('/nextRound', function(req, res) {
   ssePlayer.send(serverGameStatus.playerGameData);
 });
 
+/*
+ * POST to calculate per round result.
+ */
+router.post('/calculate', function(req, res) {
+  calcGameData(serverGameStatus);
+  res.send(serverGameStatus);
+  ssePlayer.send(serverGameStatus.playerGameData);
+});
+
+/*
+ * Instructor HTTP request handle END
+ */
+
+/*
+* Player HTTP request handle START
+*/
+
 router.get('/getPlayerTable/:player', function(req, res) {
 	var player = req.params.player;
 	console.log('Player ' + player + ' just requested game table.');
@@ -120,10 +144,12 @@ router.get('/getPlayerTable/:player', function(req, res) {
 		res.send(serverGameStatus.playerGameData[player]);
 	}
 	else {
-		// Need to handle error correctly
+		// Need to handle error correctl
 		throw 'No record in playerGameData for ' + player;
 	}
 });
+
+router.get('/ssePlayerGameData', ssePlayer.init);
 
 // authenticate user request.
 // This probably should happen in middleware.
@@ -151,8 +177,72 @@ router.post('/submitOrder/:player', function(req, res) {
   res.send({'submitOK' : true});
 });
 
-router.get('/stream', sse.init);
+/*
+* Player HTTP request handle END
+*/
 
-router.get('/ssePlayerGameData', ssePlayer.init);
+// Generate a random number between x and x + y, return is a string, not number.
+function getRandNum(x, y) {
+  if (x == undefined || !Number.isInteger(x))
+    x = 5;
+  if (y == undefined || !Number.isInteger(y))
+    y = 10;
+  if (Number.isInteger(x) && Number.isInteger(y))
+    return ((Math.random() * y) + x).toFixed(2);
+  else
+    return ((Math.random() * 10) + 5).toFixed(2);
+}
+
+/*
+ * Game number generator, this is at the beginning of round
+ */
+ function gameGen(serverGameStatus) {
+  //console.log('In gameGen()');
+  var isDemoRound = serverGameStatus.currentRound === 0;
+  serverGameStatus.currentRoundCalculated = isDemoRound;
+  for (var player in serverGameStatus.playerGameData) {
+    serverGameStatus.playerGameData[player].push({
+              //demand: isDemoRound ? 8.59 : parseFloat(getRandNum()),  // toFixed returns a string
+              demand: isDemoRound ? 8.59 : '',  // toFixed returns a string
+              ration: isDemoRound ? 12.5 : '',
+              sales: isDemoRound ? 8.59 : '',
+              lostSales: isDemoRound ? '0.00' : '',
+              surplusInv: isDemoRound ? 3.91 : '',
+              profit: isDemoRound ? 60.90 : '',
+              cumuProfit: isDemoRound ? 60.90 : '',
+              order: isDemoRound ? 12.5 : ''});
+  }
+ };
+
+ /*
+  * Calculate game data after all players have submitted orders.
+  */
+function calcGameData(serverGameStatus) {
+  console.log('--- calcGameData ---');
+  var c = serverGameStatus.currentRound;
+  var totalOrd = 0;
+  for (var player in serverGameStatus.playerGameData) {
+    if (serverGameStatus.playerGameData.hasOwnProperty(player)) {
+      var pOrder = parseFloat((serverGameStatus.playerGameData[player])[c].order);
+      totalOrd += pOrder;
+    }
+  }
+  console.log('Total orders from all players: ' + totalOrd);
+  for (var player in serverGameStatus.playerGameData) {
+    if (serverGameStatus.playerGameData.hasOwnProperty(player)) {
+      var pD = (serverGameStatus.playerGameData[player])[c]; // Player Order Data for player for round c
+      var pDorder = parseFloat(pD.order);
+      pD.demand = parseFloat(getRandNum());
+      pD.ration = parseFloat((gameParam.totalSupply * pDorder / totalOrd).toFixed(2));
+      pD.sales = Math.min(parseFloat(pD.demand), parseFloat(pD.ration));
+      pD.lostSales = Math.max(pD.demand - pD.ration, 0).toFixed(2);
+      pD.surplusInv = parseFloat(Math.max(pD.ration - pD.demand, 0).toFixed(2));
+      pD.profit = parseFloat((pD.sales * gameParam.getProfit() - pD.surplusInv * gameParam.cost).toFixed(2));
+      if (c - 1 >= 0)
+        pD.cumuProfit = (parseFloat((serverGameStatus.playerGameData[player])[c - 1].cumuProfit) + pD.profit).toFixed(2);
+    }
+  }
+  serverGameStatus.currentRoundCalculated = true;
+};
 
 module.exports = router;
