@@ -1,3 +1,4 @@
+"use strict;"
 var express = require('express');
 var router = express.Router();
 var passport = require('passport');
@@ -6,8 +7,12 @@ router.get('/userManagementPage', function(req, res, next) {
   res.render('userManagementPage', { title: 'User Management Page' });
 });
 
-router.get('/instructorGamePage', function(req, res, next) {
-  res.render('instructorGamePage', { title: 'Game Page' });
+// router.get('/instructorGamePage', function(req, res, next) {
+//   res.render('instructorGamePage', { title: 'Game Page' });
+// });
+
+router.get('/instructorGamePage/:instructor', function(req, res, next) {
+  res.render('instructorGamePage', { title: 'Game Page for ' + req.params.instructor });
 });
 
 // router.get('/playerGamePage/:player', function(req, res, next) {

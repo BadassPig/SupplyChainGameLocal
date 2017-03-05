@@ -1,11 +1,17 @@
 // Game page from instructor's perspective
 // This is a single page application.
 var gameData = {
-  submittedCounter : 0,
+  submittedCounter : 0, // This is a counter
   numPlayers : 0,
-  numRounds : 0
+  numRounds : 0,
+  currentRound : 0
   };
-var instructorID = 'instructor1'; // TODO: this should be sent from server.
+var pageData = {
+  instructorID  : 'instructor1',
+  showPrevGame : false,
+  gameEnded : false // Button pressed and confirmed?
+};
+//var instructorID = 'instructor1'; // TODO: this should be sent from server.
 
 // DOM Ready =============================================================
 $(document).ready(function() {
@@ -26,6 +32,8 @@ function registerActions() {
 	$('#btnNextRnd').prop("disabled", true);
   $('#btnCalc').prop("disabled", true);
   $('#btnEnd').prop("disabled", true);
+  $('#btnShowPrev').on('click', showPrevGameList);
+  $('#prevGameListTable').hide();
 
   // Event source related
 	var source = new EventSource('/game/stream');
@@ -70,12 +78,15 @@ function registerActions() {
 };
 
 function getGameStatus() {
-  $.getJSON( '/game/instructorGetGameData', {instructor: instructorID}, function( data ) {
+  $.getJSON( '/game/instructorGetGameData', {instructor: pageData.instructorID}, function( data ) {
     gameData.serverGameData = data;
     if (data.playerList.length) {
       gameData.numPlayers = parseInt(gameData.serverGameData.numPlayer);
       gameData.numRounds = parseInt(gameData.serverGameData.numRound);
-      gameData.submittedCounter = gameData.numPlayers;
+      //gameData.submittedCounter = gameData.numPlayers;
+      gameData.currentRound = gameData.serverGameData.currentRound;
+      if (gameData.currentRound > 0)
+        $('#btnEnd').prop("disabled", false);
       $('#inputNumberOfGroups').val(gameData.numPlayers);
       $('#inputNumberOfRounds').val(gameData.numRounds);
       populateGameTable(gameData.serverGameData);
@@ -113,6 +124,8 @@ function populateGameTable(response, all) {
         gameTableContent += '<td>' + playerGameDisp.profit + '</td>';  // profit
         gameTableContent += '<td>' + playerGameDisp.cumuProfit + '</td>'; // Cumulative Profit
         gameTableContent += '</tr>';
+        if (i == response.currentRound && playerGameDisp.order)
+          gameData.submittedCounter ++;
     });
   }
 
@@ -151,6 +164,7 @@ function startGame(event) {
         	if (response.instructorRequestOk === true) {
         		gameData.serverGameData = response;
         		console.log("Game status ok by server.")
+            console.log('Game ID: ' + response.gameID);
         		populateGameTable(gameData.serverGameData);
         		// Maybe this logic can be put somewhere else. This is only for first round
         		$('#btnNextRnd').prop("disabled", false);
@@ -185,18 +199,27 @@ function resetGame(event) {
 
 function endGame(event) {
   event.preventDefault();
-  var r = confirm('End game?');
+  var confirmed = false;
+  if (gameData.currentRound != gameData.numRounds) {
+    var r = confirm('Game not finished, still end?');
+    if (r)
+      confirmed = true;
+    else
+      return ;
+  }
+  if (!confirmed)
+    confirmed = confirm('End game and save game data?');
   if (r === true) {
     $.ajax({
       type : 'POST',
       data : {},
-      url: '/game/endGame',
+      url: '/game/endGame/' + pageData.instructorID,
       dataType : 'JSON'
     }).done( function (response) {
       console.log('Game ended.');
       $('#btnNextRnd').prop("disabled", true);
       $('#btnCalc').prop("disabled", true);
-      $('#btnEnd').prop("disabled", true);
+      //$('#btnEnd').prop("disabled", true);
     });
   }
 };
@@ -257,3 +280,15 @@ function enableNextRoundBtn(eventSource) {  // @ eventSource function called fro
       $('#btnCalc').prop("disabled", false);
   }
 };
+
+function showPrevGameList(event) {
+  event.preventDefault();
+  if (pageData.showPrevGame) {
+    $('#btnShowPrev').text("Show Game List");
+    $('#prevGameListTable').hide();
+  } else {
+    $('#btnShowPrev').text("Hide Game List");
+    $('#prevGameListTable').show();
+  }
+  pageData.showPrevGame = !pageData.showPrevGame;
+}

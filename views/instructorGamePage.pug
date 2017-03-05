@@ -27,21 +27,18 @@ block content
 	// GAME DATA
 	h2 Current Game
 	include commonGameTable.pug
-	//#gameTableBlock
-	//	table#gameTable
-	//		thead
-	//			th Period
-	//			th Player
-	//			th Demand
-	//			th Order
-	//			th Ration
-	//			th Sales
-	//			th Lost Sales
-	//			th Surplus Inventory
-	//			th Profit
-	//			th Cumulative Profit
-	//		tbody
-	// / GAME DATA
 
 	button#btnNextRnd Next Round
 	button#btnCalc Calculate
+
+	// PREVIOUS GAME
+	h2 Previous Games
+	button#btnShowPrev Show Game List
+	#prevGameList
+	table#prevGameListTable
+		thead
+			th Time
+			th Number Player
+			th Number Round
+			th Action
+		tbody

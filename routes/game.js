@@ -19,6 +19,7 @@ var passport = require('passport');
 // Data structure for the game.
 // Not saving per instructor game data at this point.
 var serverGameStatus = {
+  gameID : 0,
   numPlayer: 0, 
 	numRound: 0,
 	currentRound: 0,
@@ -33,6 +34,7 @@ var serverGameStatus = {
     (this.playerGameData[player])[currentRound].order = order;
   },
   clear() { // There might be a better way in JS to do this.
+    this.gameID = 0;
     this.numPlayer = 0;
     this.numRound = 0;
     this.currentRound = 0;
@@ -54,6 +56,29 @@ var gameParam = {
 
 function clearServerGameStatus() {
   serverGameStatus.clear();
+}
+
+// Save current game data to DB
+function saveServerGameStatus(instructor) {
+  var dbGameTable = req.db.get('gameData');
+  var query = {
+    Time        : serverGameStatus.gameID,
+    Instructor  : instructor
+  };
+  if (dbGameTable.count(query) > 0) {
+    console.log('Game for instructor ' + instructor + ' at time ' + (new Date(serverGameStatus.gameID)) + ' already exists, override.');
+    dbGameTable.remove(query);
+  }
+  dbGameTable.insert( {
+    Time        : serverGameStatus.gameID,
+    Instructor  : instructor,
+    NumPlayer   : serverGameStatus.numPlayer,
+    NumPeriod   : serverGameStatus.numRound,
+    GameData    : serverGameStatus},
+    function (err, result) {
+      if (err)
+        console.log(err);
+    });
 }
 
 /*
@@ -86,6 +111,7 @@ router.post('/startGame', function(req, res) {
     	serverGameStatus.playerGameData['testPlayer' + i] = [];
     }
     serverGameStatus.instructorRequestOk = true;
+    serverGameStatus.gameID = (new Date()).getTime();
     gameGen(serverGameStatus);
     //console.log(serverGameStatus);
 
@@ -102,8 +128,9 @@ router.post('/resetGame', function(req, res) {
 	res.send({instructorRequestOk: true});
 });
 
-router.post('/endGame', function(req, res) {
+router.post('/endGame/:instructorID', function(req, res) {
   console.log('End game requested.');
+  saveServerGameStatus(req.params.instructorID);
   clearServerGameStatus();
   res.send({instructorRequestOk: true});
 });
