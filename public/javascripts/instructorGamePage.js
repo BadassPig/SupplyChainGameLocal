@@ -6,6 +6,7 @@ var gameData = {
   numRounds : 0,
   currentRound : 0
   };
+var prevGameList = [];
 var pageData = {
   instructorID  : 'instructor1',
   showPrevGame : false,
@@ -276,7 +277,7 @@ function enableNextRoundBtn(eventSource) {  // @ eventSource function called fro
     if (eventSource)
       console.log('All players have submitted orders.');
     //$('#btnNextRnd').prop("disabled", cRnd == gameData.numRounds);
-    if (!gameData.serverGameData.currentRoundCalculated)
+    if (gameData.numPlayers > 0 && !gameData.serverGameData.currentRoundCalculated)
       $('#btnCalc').prop("disabled", false);
   }
 };
@@ -289,6 +290,73 @@ function showPrevGameList(event) {
   } else {
     $('#btnShowPrev').text("Hide Game List");
     $('#prevGameListTable').show();
+
+    // Make JSON request to get live data every time the button is toggled.
+    // Still trying to figure out if instructorID should be URL parameter or in JSON
+    $.getJSON( '/game/getAllOldGame', {instructor: pageData.instructorID}, function( data ) {
+      // Data will be an array of historical game info
+      // Example: [{"Time":1489115942142,"NumPlayer":"2","NumPeriod":"2"},{"Time":1489118499196,"NumPlayer":"2","NumPeriod":"3"}]
+      prevGameList = data;
+      var prevGameTable;
+      data.map(obj=>{
+        prevGameTable += '<tr>';
+        prevGameTable += '<td>' + (new Date(obj.Time)).toLocaleString() + '</td>';
+        prevGameTable += '<td>' + obj.NumPlayer + '</td>';
+        prevGameTable += '<td>' + obj.NumPeriod + '</td>';
+        // You can do button drop down here as well.
+        prevGameTable += '<td><select>' + '<option value="select">Select</option>' + '<option value="view">View</option>' + '<option value="delete">Delete</option>' + '</select></td>';
+        prevGameTable += '</tr>';
+      });
+      $('#prevGameListTable tbody').html(prevGameTable);
+      // Because prev game table is not populated till the actual show action takes place, select event can only be binded now.
+      $('#prevGameListTable tbody select').on('change', function() {
+        var sel = $(this).val();
+        if (sel == 'select')
+          return ;
+        var row = $(this).parent().parent().index();  // First parent() gives you <td>, second parent() gives you <tr>
+        var column = $(this).parent().index();
+        var selectedGameId = prevGameList[row].Time;
+        if (sel == 'view') {
+          $.getJSON('/game/getOldGameById', {gameID : selectedGameId, instructor : pageData.instructorID}, function(data) {
+            //console.log(data);
+            populateGameTable(data.GameData);
+          });
+        } else if (sel == 'delete') {
+          var r = confirm('Do you want to remove this game? Removed game can\'t be recovered.');
+          if (r) {
+            $.ajax({
+              type: 'DELETE',
+              //data: {gameID : selectedGameId, instructor : pageData.instructorID},
+              url: '/game/deleteGame/' + pageData.instructorID + '/' + selectedGameId
+              //dataType: 'JSON'
+            }).done( function (response) {
+              console.log('Delete ' + selectedGameId + ' successful.');
+              prevGameList.splice(row);
+              // Repoulate game list
+              populatePrevGameList(prevGameList);
+            }).fail( function (jqXHR, textStatus) {
+              console.log('Deleting game row ' + (row + 1) + ' failed: ' + textStatus);
+            });
+          } // if (r)
+        }
+      });
+    });
   }
   pageData.showPrevGame = !pageData.showPrevGame;
 }
+
+function populatePrevGameList(data) {
+  // data should be an array like [{"Time":1489115942142,"NumPlayer":"2","NumPeriod":"2"},{"Time":1489118499196,"NumPlayer":"2","NumPeriod":"3"}]
+  var prevGameTable = '';
+  data.map(obj=>{
+    prevGameTable += '<tr>';
+    prevGameTable += '<td>' + (new Date(obj.Time)).toLocaleString() + '</td>';
+    prevGameTable += '<td>' + obj.NumPlayer + '</td>';
+    prevGameTable += '<td>' + obj.NumPeriod + '</td>';
+    // You can do button drop down here as well.
+    prevGameTable += '<td><select>' + '<option value="select">Select</option>' + '<option value="view">View</option>' + '<option value="delete">Delete</option>' + '</select></td>';
+    prevGameTable += '</tr>';
+  });
+  console.log('New game list content ' + prevGameTable);
+  $('#prevGameListTable tbody').html(prevGameTable);
+};

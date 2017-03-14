@@ -59,7 +59,8 @@ function clearServerGameStatus() {
 }
 
 // Save current game data to DB
-function saveServerGameStatus(instructor) {
+function saveServerGameStatus(req) {
+  var instructor = req.params.instructorID;
   var dbGameTable = req.db.get('gameData');
   var query = {
     Time        : serverGameStatus.gameID,
@@ -96,6 +97,47 @@ function saveServerGameStatus(instructor) {
 
  router.get('/stream', sse.init);
 
+ router.get('/getAllOldGame', function(req, res) {
+  var instructor = req.query.instructor;
+  var dbGameTable = req.db.get('gameData');
+  var query = {
+    Instructor  : instructor
+  };
+  dbGameTable.find(query).then(docs=>{
+    if (docs) {
+      // console.log('Found old game data for ' + instructor);
+      //console.log(docs);
+      var respond = [];
+      docs.map(function(obj) {
+        var temp = {
+          Time        : obj.Time,
+          NumPlayer   : obj.NumPlayer,
+          NumPeriod   : obj.NumPeriod,
+        }
+        respond.push(temp);
+      });
+      //console.log(respond);
+
+      res.send(respond);
+    } else {
+      console.log('Old game data for ' + instructor + ' not found.');
+    }
+  });
+ });
+
+ router.get('/getOldGameById', function(req, res) {
+  var gameId = req.query.gameID;
+  var instructor = req.query.instructor;
+  console.log('Instructor ' + instructor + ' just requested old game ' + gameId);
+  var dbGameTable = req.db.get('gameData');
+  dbGameTable.find({Time : parseInt(gameId), Instructor : instructor })
+  .then(docs=>{
+    if (docs) {  // Should be unique
+      res.send(docs[0]);
+    }
+  });
+ });
+
 /*
  * POST to start game.
  */
@@ -130,7 +172,7 @@ router.post('/resetGame', function(req, res) {
 
 router.post('/endGame/:instructorID', function(req, res) {
   console.log('End game requested.');
-  saveServerGameStatus(req.params.instructorID);
+  saveServerGameStatus(req);
   clearServerGameStatus();
   res.send({instructorRequestOk: true});
 });
@@ -152,6 +194,18 @@ router.post('/calculate', function(req, res) {
   calcGameData(serverGameStatus);
   res.send(serverGameStatus);
   ssePlayer.send(serverGameStatus.playerGameData);
+});
+
+router.delete('/deleteGame/:instructor/:gameID', function(req, res) {
+  var gameId = req.params.gameID;
+  var instructor = req.params.instructor;
+  var dbGameTable = req.db.get('gameData');
+  dbGameTable.remove({Time : parseInt(gameId), Instructor : instructor}, function (err, result) {
+      if (err)
+        console.log(err);
+    });
+  console.log('Instructor ' + instructor + ' just requested to delete game ' + gameId + ', successful.');
+  res.send('Success');
 });
 
 /*
