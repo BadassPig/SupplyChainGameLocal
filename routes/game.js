@@ -59,6 +59,7 @@ function clearServerGameStatus() {
 }
 
 // Save current game data to DB
+// This sequential code should be changed to call backs or promise
 function saveServerGameStatus(req) {
   var instructor = req.params.instructorID;
   var dbGameTable = req.db.get('gameData');
@@ -66,6 +67,7 @@ function saveServerGameStatus(req) {
     Time        : serverGameStatus.gameID,
     Instructor  : instructor
   };
+  console.log('Saving game data for instructor ' + instructor + ' game ID ' + serverGameStatus.gameID);
   if (dbGameTable.count(query) > 0) {
     console.log('Game for instructor ' + instructor + ' at time ' + (new Date(serverGameStatus.gameID)) + ' already exists, override.');
     dbGameTable.remove(query);

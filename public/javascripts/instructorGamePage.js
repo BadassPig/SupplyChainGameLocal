@@ -210,7 +210,7 @@ function endGame(event) {
   }
   if (!confirmed)
     confirmed = confirm('End game and save game data?');
-  if (r === true) {
+  if (confirmed === true) {
     $.ajax({
       type : 'POST',
       data : {},
@@ -316,6 +316,9 @@ function showPrevGameList(event) {
         var row = $(this).parent().parent().index();  // First parent() gives you <td>, second parent() gives you <tr>
         var column = $(this).parent().index();
         var selectedGameId = prevGameList[row].Time;
+        // Whenever user makes a selection, reset all other selections to 'select' (because we bind on 'change')
+        $('#prevGameListTable select').val('select');
+        $('#prevGameListTable tbody tr:eq(' + row + ') select').val(sel);
         if (sel == 'view') {
           $.getJSON('/game/getOldGameById', {gameID : selectedGameId, instructor : pageData.instructorID}, function(data) {
             //console.log(data);
