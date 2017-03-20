@@ -30,6 +30,7 @@ function populateTable() {
             tableContent += '<tr>';
             tableContent += '<td><a href="#" class="linkshowuser" rel="' + this.userName + '">' + this.userName + '</a></td>';
             tableContent += '<td>' + this.userRole + '</td>';
+            tableContent += '<td>' + this.instructor + '</td>';
             tableContent += '<td><a href="#" class="linkdeleteuser" rel="' + this._id + '">delete</a></td>';
             tableContent += '</tr>';
         });
@@ -86,6 +87,7 @@ function addUser(event) {
         var newUser = {
             'userName': $('#addUser fieldset input#inputUserName').val(),
             'userRole': $('#addUser fieldset input#inputUserRole').val(),
+            'instructor' : $('#addUser fieldset input#inputInstructor').val(),
             'userPassword': $('#addUser fieldset input#inputUserPassword').val()
         }
 
@@ -96,7 +98,7 @@ function addUser(event) {
             url: '/users/adduser',
             dataType: 'JSON'
         }).done(function( response ) {
-
+            console.log('Add user ' + newUser.userName + ' finished.');
             // Check for successful (blank) response
             if (response.msg === '') {
 

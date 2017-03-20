@@ -33,6 +33,7 @@ block content
                 thead
                     th UserName
                     th UserRole
+                    th Instructor(Player only)
                     th Delete?
                 tbody
         // /USER LIST
@@ -44,8 +45,8 @@ block content
                 input#inputUserName(type='text', placeholder='UserName')
                 input#inputUserRole(type='text', placeholder='UserRole')
                 br
+                input#inputInstructor(type='text', placeholder='Instructor')
                 input#inputUserPassword(type='text', placeholder='Password')
-                //input#inputUserAge(type='text', placeholder='Age')
                 br
                 button#btnAddUser Add User
         // /ADD USER

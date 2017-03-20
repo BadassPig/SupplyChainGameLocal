@@ -1,10 +1,13 @@
+'use strict'
+
 // Game page from instructor's perspective
 // This is a single page application.
 var gameData = {
   submittedCounter : 0, // This is a counter
   numPlayers : 0,
   numRounds : 0,
-  currentRound : 0
+  currentRound : 0,
+  playerEmails : []
   };
 var prevGameList = [];
 var pageData = {
@@ -25,20 +28,20 @@ $(document).ready(function() {
 });
 
 function registerActions() {
-	$('#formSetupGame #btnStart').on('click', startGame);
-	$('#formSetupGame #btnReset').on('click', resetGame);
+  $('#formSetupGame #btnStart').on('click', startGame);
+  $('#formSetupGame #btnReset').on('click', resetGame);
   $('#formSetupGame #btnEnd').on('click', endGame);
-	$('#btnNextRnd').on('click', nextRound);
+  $('#btnNextRnd').on('click', nextRound);
   $('#btnCalc').on('click', calculate);
-	$('#btnNextRnd').prop("disabled", true);
+  $('#btnNextRnd').prop("disabled", true);
   $('#btnCalc').prop("disabled", true);
   $('#btnEnd').prop("disabled", true);
   $('#btnShowPrev').on('click', showPrevGameList);
   $('#prevGameListTable').hide();
 
   // Event source related
-	var source = new EventSource('/game/stream');
-	source.addEventListener('message', function(e) {
+  var source = new EventSource('/game/stream');
+  source.addEventListener('message', function(e) {
         if (!e)
           return ;
         var data = JSON.parse(e.data);
@@ -64,18 +67,18 @@ function registerActions() {
         // }
         //$('#tdOrderId3').html(order);
       }, false);
-	source.addEventListener('open', function(e) {
+  source.addEventListener('open', function(e) {
         console.log('EventSource connected');
       }, false);
 
-    source.addEventListener('error', function(e) {
-        if (e.target.readyState == EventSource.CLOSED) {
-          console.log('EventSource disconnected.');
-        }
-        else if (e.target.readyState == EventSource.CONNECTING) {
-          console.log('Connecting to EventSource.');
-        }
-      }, false);
+  source.addEventListener('error', function(e) {
+      if (e.target.readyState == EventSource.CLOSED) {
+        console.log('EventSource disconnected.');
+      }
+      else if (e.target.readyState == EventSource.CONNECTING) {
+        console.log('Connecting to EventSource.');
+      }
+    }, false);
 };
 
 function getGameStatus() {
@@ -101,10 +104,10 @@ function getGameStatus() {
   @all boolean, display all data or just current round data 
  */
 function populateGameTable(response, all) {
-	var gameTableContent;
-	//console.log(gameData);
-	console.log(response.playerGameData);
-	//var counter = response.currentRound * gameData.numPlayers;
+  var gameTableContent;
+  //console.log(gameData);
+  console.log(response.playerGameData);
+  //var counter = response.currentRound * gameData.numPlayers;
   var counter = 0;
   for (var i = 0; i <= response.currentRound; ++ i) {
     $.each(response.playerGameData, function(index, value) {  // @index: playerID, @value: array of game data.
@@ -130,72 +133,96 @@ function populateGameTable(response, all) {
     });
   }
 
-	$('#gameTable tbody').html(gameTableContent);
-	//$('#gameTableBlock table tbody').append(gameTableContent);
-	// Disable start game button.
-	$('#formSetupGame #btnStart').prop('disabled', true);
-	$('#inputNumberOfGroups').prop('disabled', true);
-	$('#inputNumberOfRounds').prop('disabled', true);
+  $('#gameTable tbody').html(gameTableContent);
+  //$('#gameTableBlock table tbody').append(gameTableContent);
+  // Disable start game button.
+  $('#formSetupGame #btnStart').prop('disabled', true);
+  $('#inputNumberOfGroups').prop('disabled', true);
+  $('#inputNumberOfRounds').prop('disabled', true);
   $('#selectAllocationRule').prop('disabled', true);
+  $('#inputPlayerEmails').prop('disabled', true);
   enableNextRoundBtn();
 };
 
 function startGame(event) {
-	event.preventDefault();
+  event.preventDefault();
 
-	var errCount = 0;
-	// 
-	$('#formSetupGame input').each(function(index, val) {
-		if($(this).val() === '' || $(this).val <= 0) { errCount ++; }
-	})
+  var errCount = 0;
+  // 
+  $('#formSetupGame input').each(function(index, val) {
+    if ($(this).attr('id') === 'inputPlayerEmails')
+      return true; // skip checking this for now
+    if($(this).val() === '' || $(this).val <= 0) { errCount ++; }
+  });
 
-	if (errCount === 0) {
-		// Probably can do assignment while validating values so don't need to select DOM objects more than once
-		gameData.numPlayers = $('#formSetupGame #inputNumberOfGroups').val();
-		gameData.numRounds = $('#formSetupGame #inputNumberOfRounds').val();
-		// TODO: Should be what instructor logged in as.
-		//gameData.instructor = 'instructor1';
-		//console.log(gameData);
-		$.ajax({
+  if (errCount === 0) {
+    // Probably can do assignment while validating values so don't need to select DOM objects more than once
+    gameData.numPlayers = $('#formSetupGame #inputNumberOfGroups').val();
+    gameData.numRounds = $('#formSetupGame #inputNumberOfRounds').val();
+    var emailStr = $('#inputPlayerEmails').val();
+    if (emailStr !== '')
+      gameData.playerEmails = $('#inputPlayerEmails').val().split(';');
+    if (gameData.playerEmails.length != gameData.numPlayers) {
+      alert('Number of e-mails ' + gameData.playerEmails.length + ' doesn\'t match number of players ' + gameData.numPlayers + '.');
+      return ;
+    }
+    var newEmailsArray = [];
+    gameData.playerEmails.forEach(function(e) {
+      if (e.indexOf('@') == -1) {
+        alert('Invalid e-mail ' + e);
+        return ;
+      }
+      // Because Mongo DB doesn't allow '$' and '.' in keys, replace them with '_' when creating player names
+      ['$', '.'].map(c=>{
+        while(e.indexOf(c) != -1) {
+          let i = e.indexOf(c);
+          e = e.substr(0, i) + '_' + e.substr(i + 1);
+        }
+      });
+      newEmailsArray.push(e);
+    });
+    gameData.playerEmails = newEmailsArray;
+    //console.log(gameData);
+    $.ajax({
             type: 'POST',
             data: gameData,
-            url: '/game/startGame',
+            url: '/game/startGame/' + pageData.instructorID,
             dataType: 'JSON'
         }).done(function( response ) {
-        	if (response.instructorRequestOk === true) {
-        		gameData.serverGameData = response;
-        		console.log("Game status ok by server.")
+          if (response.instructorRequestOk === true) {
+            gameData.serverGameData = response;
+            console.log("Game status ok by server.")
             console.log('Game ID: ' + response.gameID);
-        		populateGameTable(gameData.serverGameData);
-        		// Maybe this logic can be put somewhere else. This is only for first round
-        		$('#btnNextRnd').prop("disabled", false);
+            populateGameTable(gameData.serverGameData);
+            // Maybe this logic can be put somewhere else. This is only for first round
+            $('#btnNextRnd').prop("disabled", false);
             //$('#btnCalc').prop("disabled", false);
             $('#btnEnd').prop("disabled", false);
-        	} else {
-        		alert(response.gameStartErr);
-        	}
+          } else {
+            alert(response.gameStartErr);
+          }
         });
-	} else {
-		alert('Please fill both fields with valid values.');
-	}
+  } else {
+    alert('Please fill fields with valid values.');
+  }
 };
 
 function resetGame(event) {
-	event.preventDefault();
-	var r = confirm('Reset game will lose all current game data.');
-	if (r === true) {
-		console.log('Reset game button clicked.');
-		$.ajax({
+  event.preventDefault();
+  var r = confirm('Reset game will lose all current game data.');
+  if (r === true) {
+    console.log('Reset game button clicked.');
+    $.ajax({
             type: 'POST',
             data: {},
             url: '/game/resetGame',
             dataType: 'JSON'
         }).done(function( response ) {
-        	if (response.instructorRequestOk === true) {
-        		window.location.reload();
-        	}
+          if (response.instructorRequestOk === true) {
+            window.location.reload();
+          }
         });
-	}
+  }
 };
 
 function endGame(event) {
@@ -217,34 +244,39 @@ function endGame(event) {
       url: '/game/endGame/' + pageData.instructorID,
       dataType : 'JSON'
     }).done( function (response) {
-      console.log('Game ended.');
-      $('#btnNextRnd').prop("disabled", true);
-      $('#btnCalc').prop("disabled", true);
-      //$('#btnEnd').prop("disabled", true);
+      if (response.instructorRequestOk) {
+        console.log('Game ended.');
+        $('#btnNextRnd').prop("disabled", true);
+        $('#btnCalc').prop("disabled", true);
+        //$('#btnEnd').prop("disabled", true);
+      } else {
+        alert('Save Game not successful.');
+      }
     });
   }
 };
 
 function nextRound(event) {
-	event.preventDefault();
+  event.preventDefault();
 
-	$.ajax({
+  $.ajax({
         type: 'POST',
         data: {},
         url: '/game/nextRound',
         dataType: 'JSON'
     }).done(function( response ) {
       console.log('Next round successful.');
+      gameData.currentRound ++;
       gameData.submittedCounter = 0;
-    	if (response.instructorRequestOk === true) {
-    		gameData.serverGameData = response;
-    		//gameData.serverGameData.currentRound ++;
-    		populateGameTable(gameData.serverGameData);
-    		$('#btnNextRnd').prop("disabled", true);
+      if (response.instructorRequestOk === true) {
+        gameData.serverGameData = response;
+        //gameData.serverGameData.currentRound ++;
+        populateGameTable(gameData.serverGameData);
+        $('#btnNextRnd').prop("disabled", true);
         $('#btnCalc').prop("disabled", true);
-    	} else {
+      } else {
 
-    	}
+      }
     });
 };
 
@@ -322,6 +354,7 @@ function showPrevGameList(event) {
         if (sel == 'view') {
           $.getJSON('/game/getOldGameById', {gameID : selectedGameId, instructor : pageData.instructorID}, function(data) {
             //console.log(data);
+            $('#btnNextRnd').prop("disabled", true);
             populateGameTable(data.GameData);
           });
         } else if (sel == 'delete') {

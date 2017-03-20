@@ -1,3 +1,4 @@
+"use strict";
 // This is the server side (more like expressjs) javascript. This file is not run on client side. It handles request from both instructor and player
 // For now only consider single instructor session.
 
@@ -14,6 +15,7 @@ var SSE = require('express-sse');
 var sse = new SSE();	// SSE connection for instructor
 var ssePlayer = new SSE(); // sse connection for player.
 var passport = require('passport');
+const nodemailer = require('nodemailer');
 
 
 // Data structure for the game.
@@ -60,7 +62,7 @@ function clearServerGameStatus() {
 
 // Save current game data to DB
 // This sequential code should be changed to call backs or promise
-function saveServerGameStatus(req) {
+function saveServerGameStatus(req, successCB, failCB) {
   var instructor = req.params.instructorID;
   var dbGameTable = req.db.get('gameData');
   var query = {
@@ -79,8 +81,11 @@ function saveServerGameStatus(req) {
     NumPeriod   : serverGameStatus.numRound,
     GameData    : serverGameStatus},
     function (err, result) {
-      if (err)
+      if (err) {
         console.log(err);
+        failCB(err);
+      } else
+      successCB();
     });
 }
 
@@ -143,17 +148,32 @@ function saveServerGameStatus(req) {
 /*
  * POST to start game.
  */
-router.post('/startGame', function(req, res) {
+router.post('/startGame/:instructor', function(req, res) {
     //var db = req.db;
-    //console.log('Received game start request.');
+    console.log('Received game start request from ' + req.params.instructor);
     clearServerGameStatus();
     serverGameStatus.numPlayer = req.body.numPlayers;
     serverGameStatus.numRound = req.body.numRounds;
-    //serverGameStatus.playerList = [];
-    for (var i = 1; i <= serverGameStatus.numPlayer; ++ i) {
-    	serverGameStatus.playerList.push('testPlayer' + i);
-    	serverGameStatus.playerGameData['testPlayer' + i] = [];
-    }
+    // for (var i = 1; i <= serverGameStatus.numPlayer; ++ i) {
+    // 	serverGameStatus.playerList.push('testPlayer' + i);
+    // 	serverGameStatus.playerGameData['testPlayer' + i] = [];
+    // }
+    
+    // It seems if a JSON object is sent directly there are some serilization/deserilization tricks behid the scene.
+    console.log(typeof req.body['playerEmails[]']);
+    let playerEmailsArray = [];
+    if (typeof req.body['playerEmails[]'] === 'string')
+      playerEmailsArray.push(req.body['playerEmails[]']);
+    else
+      playerEmailsArray = req.body['playerEmails[]'];
+    playerEmailsArray.forEach(function(e) {
+      var playerName = e.slice(0, e.indexOf('@'))
+      serverGameStatus.playerList.push(playerName);
+      serverGameStatus.playerGameData[playerName] = [];
+
+      // TODO: playerName could be the same
+      addUserToDB('player', playerName, req.params.instructor, req.db, e);
+    });
     serverGameStatus.instructorRequestOk = true;
     serverGameStatus.gameID = (new Date()).getTime();
     gameGen(serverGameStatus);
@@ -174,9 +194,12 @@ router.post('/resetGame', function(req, res) {
 
 router.post('/endGame/:instructorID', function(req, res) {
   console.log('End game requested.');
-  saveServerGameStatus(req);
-  clearServerGameStatus();
-  res.send({instructorRequestOk: true});
+  saveServerGameStatus(req, function(){
+    clearServerGameStatus();
+    res.send({instructorRequestOk: true});
+  }, function (err) {
+    res.send({instructorRequestOk: false});
+  });
 });
 
 /*
@@ -276,6 +299,18 @@ function getRandNum(x, y) {
     return ((Math.random() * 10) + 5).toFixed(2);
 }
 
+// Generate a random string of given length
+function genRandomString(l)
+{
+    var text = "";
+    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    for( var i=0; i < l; i++ )
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+    return text;
+}
+
 /*
  * Game number generator, this is at the beginning of round
  */
@@ -327,5 +362,55 @@ function calcGameData(serverGameStatus) {
   }
   serverGameStatus.currentRoundCalculated = true;
 };
+
+// Add new player associated with instructor to db. If player already exists, return password.
+function addUserToDB(role, username, instructor, db, email) {
+  var collection = db.get('userlist');
+  if (role === 'player') {
+    var query = {userName : username, userRole : 'player', instructor : instructor };
+    collection.findOne(query).then(doc=>{
+      if (doc) {
+        console.log('Found record for ' + username);
+        emailUser(email, username + '/' + doc.userPassword);
+      }
+      else {
+        console.log('Adding record for ' + username);
+        var pwd = genRandomString(6);
+        collection.insert({
+          'userName' : username,
+          'userRole' : role,
+          'instructor' : instructor,
+          'userPassword' : pwd
+        }).then(emailUser(email, username + '/' + pwd));
+      }
+    });
+  }
+};
+
+function emailUser(email, text) {
+  // Might be more efficient to create transporter only once
+  let transporter = nodemailer.createTransport({
+      service: 'yahoo',
+      auth: {
+          user: 'yilongnodemail@yahoo.com',
+          pass: 'Yah00yahoo'
+      }
+  });
+  console.log('Transporter created.');
+
+  let mailOptions = {
+    from: '"Ha" <yilongnodemail@yahoo.com>', // sender address
+    to: email, // list of receivers
+    subject: 'Supply Chain Game', // Subject line
+    text: text//, // plain text body
+    //html: '<b>Hello world ?</b>' // html body
+  };
+  console.log('Sending e-mail to ' + email + ' with text ' + text);
+  // transporter.sendMail(mailOptions, (error, info) => {
+  //   if (error)
+  //     return console.log(error);
+  //   console.log('Message %s sent: %s', info.messageId, info.response);
+  // });
+}
 
 module.exports = router;
