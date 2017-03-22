@@ -1,3 +1,5 @@
+"use strict";
+
 var express = require('express');
 var router = express.Router();
 var passport = require('passport');
@@ -52,7 +54,7 @@ router.post('/login',
         collection.find({'userName' : req.body.username}, 'userRole').then((docs)=> {
             if (docs) {
                 if (docs[0].userRole === 'instructor')
-                    res.redirect('/instructorGamePage');
+                    res.redirect('/instructorGamePage/' + req.body.username);
                 else if (docs[0].userRole === 'player') {
                     console.log('Redirecting to playerGamePage for ' + req.body.username);
                     res.redirect('/playerGamePage/' + req.body.username);
@@ -85,19 +87,21 @@ router.post('/login',
 //         });
 // });
 
-router.get('/logout', function(req, res) {
+router.get('/logout/:user', function(req, res) {
     if (!req.isAuthenticated()) {
         console.log('Log out action for can\'t be aunthenticated');
         return ;
     }
-    console.log(req.session.passport);
+    //console.log(req.session.passport);
     var player = req.session.passport.user[0].userName;
     console.log('Logout action for ' + player);
     req.logout();
     // Or redirect?
     //console.log('Redirecting...');
+    res.send('Logged out');
     //res.render('index', { title: 'Login Page', user: '' });
-    res.redirect('/');
+    //res.redirect('/');
+    //res.render('index', { title: 'Login Page', user: '' });
 });
 
 module.exports = router;

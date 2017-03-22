@@ -121,8 +121,13 @@ function logoutUser(event) {
   console.debug('Logging out user ' + gameData.name);
   $.ajax(
   {
-    url: '/users/logout/'
+    type  : 'GET',
+    url   : '/users/logout/' + gameData.name
   }).done(function( response ) {
-    window.location.reload();  
+    console.log('Log out action successful!');
+    // There should be better way of doing this. For example just echo response on page.
+    window.location.reload();
+  }).fail(function(res) {
+    console.log('Log out action failed!');
   });
 };

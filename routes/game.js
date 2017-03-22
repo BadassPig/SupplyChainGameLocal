@@ -12,7 +12,7 @@
 var express = require('express');
 var router = express.Router();
 var SSE = require('express-sse');
-var sse = new SSE();	// SSE connection for instructor
+var sse = new SSE();  // SSE connection for instructor
 var ssePlayer = new SSE(); // sse connection for player.
 var passport = require('passport');
 const nodemailer = require('nodemailer');
@@ -23,12 +23,12 @@ const nodemailer = require('nodemailer');
 var serverGameStatus = {
   gameID : 0,
   numPlayer: 0, 
-	numRound: 0,
-	currentRound: 0,
+  numRound: 0,
+  currentRound: 0,
   currentRoundCalculated : false,
-	instructorRequestOk: false,
-	playerList: [],
-	playerGameData: {},	// playerName : [round Data]. [round data] is an array of objects
+  instructorRequestOk: false,
+  playerList: [],
+  playerGameData: {},  // playerName : [round Data]. [round data] is an array of objects
   setPlayerOrder(player, order, round) {  // set the order for player
     var currentRound = !round ? this.currentRound : round;
     if (!this.playerGameData.hasOwnProperty(player) || this.playerGameData[player].length < currentRound)
@@ -45,7 +45,7 @@ var serverGameStatus = {
     this.playerList = [];
     this.playerGameData = {};
   }
-};	// keep a record at server. In the future this should be per session.
+};  // keep a record at server. In the future this should be per session.
 
 var gameParam = {
   totalSupply : 20,
@@ -155,8 +155,8 @@ router.post('/startGame/:instructor', function(req, res) {
     serverGameStatus.numPlayer = req.body.numPlayers;
     serverGameStatus.numRound = req.body.numRounds;
     // for (var i = 1; i <= serverGameStatus.numPlayer; ++ i) {
-    // 	serverGameStatus.playerList.push('testPlayer' + i);
-    // 	serverGameStatus.playerGameData['testPlayer' + i] = [];
+    //   serverGameStatus.playerList.push('testPlayer' + i);
+    //   serverGameStatus.playerGameData['testPlayer' + i] = [];
     // }
     
     // It seems if a JSON object is sent directly there are some serilization/deserilization tricks behid the scene.
@@ -187,9 +187,9 @@ router.post('/startGame/:instructor', function(req, res) {
 });
 
 router.post('/resetGame', function(req, res) {
-	console.log('Game data reset.');
-	clearServerGameStatus();
-	res.send({instructorRequestOk: true});
+  console.log('Game data reset.');
+  clearServerGameStatus();
+  res.send({instructorRequestOk: true});
 });
 
 router.post('/endGame/:instructorID', function(req, res) {
@@ -206,8 +206,8 @@ router.post('/endGame/:instructorID', function(req, res) {
  * POST to go to next round.
  */
 router.post('/nextRound', function(req, res) {
-	serverGameStatus.currentRound ++;
-	gameGen(serverGameStatus);
+  serverGameStatus.currentRound ++;
+  gameGen(serverGameStatus);
   res.send(serverGameStatus);
   ssePlayer.send(serverGameStatus.playerGameData);
 });
@@ -242,17 +242,21 @@ router.delete('/deleteGame/:instructor/:gameID', function(req, res) {
 */
 
 router.get('/getPlayerTable/:player', function(req, res) {
-	var player = req.params.player;
-	console.log('Player ' + player + ' just requested game table.');
-	if (serverGameStatus.playerGameData.hasOwnProperty(player)) {
+  var player = req.params.player;
+  if (!req.isAuthenticated()) {
+      console.log('getPlayerTable for ' + player + ' can\'t be authenticated.');
+      return ;
+  }
+  console.log('Player ' + player + ' just requested game table.');
+  if (serverGameStatus.playerGameData.hasOwnProperty(player)) {
     // console.log('Sending data: ');
     // console.log(serverGameStatus.playerGameData[player]);
-		res.send(serverGameStatus.playerGameData[player]);
-	}
-	else {
-		// Need to handle error correctl
-		throw 'No record in playerGameData for ' + player;
-	}
+    res.send(serverGameStatus.playerGameData[player]);
+  }
+  else {
+    // Need to handle error correctl
+    throw 'No record in playerGameData for ' + player;
+  }
 });
 
 router.get('/ssePlayerGameData', ssePlayer.init);
@@ -260,16 +264,16 @@ router.get('/ssePlayerGameData', ssePlayer.init);
 // authenticate user request.
 // This probably should happen in middleware.
 // router.get('/getPlayerTable/:player', passport.authenticate('local'), function(req, res) {
-// 	var player = req.params.player;
-// 	console.log('Player ' + player + ' just requested game table.');
-// 	if (serverGameStatus.playerGameData.hasOwnProperty(player)) {
-// 		//console.log('Sending data: ' + serverGameStatus.playerGameData[player]);
-// 		res.send(serverGameStatus.playerGameData[player]);
-// 	}
-// 	else {
-// 		// Need to handle error correctly
-// 		throw 'No record in playerGameData for ' + player;
-// 	}
+//   var player = req.params.player;
+//   console.log('Player ' + player + ' just requested game table.');
+//   if (serverGameStatus.playerGameData.hasOwnProperty(player)) {
+//     //console.log('Sending data: ' + serverGameStatus.playerGameData[player]);
+//     res.send(serverGameStatus.playerGameData[player]);
+//   }
+//   else {
+//     // Need to handle error correctly
+//     throw 'No record in playerGameData for ' + player;
+//   }
 // });
 
 router.post('/submitOrder/:player', function(req, res) {

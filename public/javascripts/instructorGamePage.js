@@ -11,7 +11,7 @@ var gameData = {
   };
 var prevGameList = [];
 var pageData = {
-  instructorID  : 'instructor1',
+  instructorID  : '',
   showPrevGame : false,
   gameEnded : false // Button pressed and confirmed?
 };
@@ -19,12 +19,12 @@ var pageData = {
 
 // DOM Ready =============================================================
 $(document).ready(function() {
-
-    // Populate the user table on initial page load
-    // At the begining client should fetch game data from server.
-    //populateGameTable();
-    getGameStatus(); // If a game has already begun, get game data.
-    registerActions();
+  var urlPath = window.location.pathname;
+  pageData.instructorID = urlPath.replace('/instructorGamePage/', '');
+  // Populate the user table on initial page load
+  // At the begining client should fetch game data from server.
+  getGameStatus(); // If a game has already begun, get game data.
+  registerActions();
 });
 
 function registerActions() {

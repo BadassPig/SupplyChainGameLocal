@@ -1,3 +1,5 @@
+"use strict";
+
 var express = require('express');
 var path = require('path');
 var favicon = require('serve-favicon');
@@ -110,14 +112,14 @@ passport.use(new LocalStrategy(
           console.log('Find user ' + username + ' failed at db.');
           return done(e);
         }
-        else if (!docs) {
+        else if (docs.length == 0) {
           console.log('No record found for ' + username);
           return done(null, false);
         } else if (docs[0].userPassword !== password) {
           console.log('Invalid passowrd for ' + username);
           return done(null, false, {message: 'Invalid password.'});
         }
-        console.log(docs);
+        //console.log(docs);
         return done(null, docs);
     });
 }));
