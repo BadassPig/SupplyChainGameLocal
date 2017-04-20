@@ -167,7 +167,15 @@ router.post('/startGame/:instructor', function(req, res) {
     else
       playerEmailsArray = req.body['playerEmails[]'];
     playerEmailsArray.forEach(function(e) {
-      var playerName = e.slice(0, e.indexOf('@'))
+      //var playerName = e.slice(0, e.indexOf('@'));
+      var playerName = e;
+      // Because Mongo DB doesn't allow '$' and '.' in keys, replace them with '_' when creating player names
+      // ['$', '.'].map(c=>{
+      //   while(playerName.indexOf(c) != -1) {
+      //     let i = playerName.indexOf(c);
+      //     playerName = playerName.substr(0, i) + '_' + playerName.substr(i + 1);
+      //   }
+      // });
       serverGameStatus.playerList.push(playerName);
       serverGameStatus.playerGameData[playerName] = [];
 
@@ -400,21 +408,21 @@ function emailUser(email, text) {
           pass: 'Yah00yahoo'
       }
   });
-  console.log('Transporter created.');
+  //console.log('Transporter created.');
 
   let mailOptions = {
-    from: '"Ha" <yilongnodemail@yahoo.com>', // sender address
+    from: '"SupplayChainGame" <yilongnodemail@yahoo.com>', // sender address
     to: email, // list of receivers
     subject: 'Supply Chain Game', // Subject line
     text: text//, // plain text body
     //html: '<b>Hello world ?</b>' // html body
   };
   console.log('Sending e-mail to ' + email + ' with text ' + text);
-  // transporter.sendMail(mailOptions, (error, info) => {
-  //   if (error)
-  //     return console.log(error);
-  //   console.log('Message %s sent: %s', info.messageId, info.response);
-  // });
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error)
+      return console.log(error);
+    console.log('Message %s sent: %s', info.messageId, info.response);
+  });
 }
 
 module.exports = router;

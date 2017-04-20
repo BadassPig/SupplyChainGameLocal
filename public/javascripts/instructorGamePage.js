@@ -15,7 +15,6 @@ var pageData = {
   showPrevGame : false,
   gameEnded : false // Button pressed and confirmed?
 };
-//var instructorID = 'instructor1'; // TODO: this should be sent from server.
 
 // DOM Ready =============================================================
 $(document).ready(function() {
@@ -93,6 +92,7 @@ function getGameStatus() {
         $('#btnEnd').prop("disabled", false);
       $('#inputNumberOfGroups').val(gameData.numPlayers);
       $('#inputNumberOfRounds').val(gameData.numRounds);
+      $('#inputPlayerEmails').val(gameData.serverGameData.playerList.join(';'));
       populateGameTable(gameData.serverGameData);
     }
   });
@@ -160,8 +160,11 @@ function startGame(event) {
     gameData.numPlayers = $('#formSetupGame #inputNumberOfGroups').val();
     gameData.numRounds = $('#formSetupGame #inputNumberOfRounds').val();
     var emailStr = $('#inputPlayerEmails').val();
+    // First truncate spaces
+    emailStr = emailStr.replace(/\s+/g, '');
+    $('#inputPlayerEmails').val(emailStr);
     if (emailStr !== '')
-      gameData.playerEmails = $('#inputPlayerEmails').val().split(';');
+      gameData.playerEmails = emailStr.split(';');
     if (gameData.playerEmails.length != gameData.numPlayers) {
       alert('Number of e-mails ' + gameData.playerEmails.length + ' doesn\'t match number of players ' + gameData.numPlayers + '.');
       return ;
@@ -173,12 +176,12 @@ function startGame(event) {
         return ;
       }
       // Because Mongo DB doesn't allow '$' and '.' in keys, replace them with '_' when creating player names
-      ['$', '.'].map(c=>{
-        while(e.indexOf(c) != -1) {
-          let i = e.indexOf(c);
-          e = e.substr(0, i) + '_' + e.substr(i + 1);
-        }
-      });
+      // ['$', '.'].map(c=>{
+      //   while(e.indexOf(c) != -1) {
+      //     let i = e.indexOf(c);
+      //     e = e.substr(0, i) + '_' + e.substr(i + 1);
+      //   }
+      // });
       newEmailsArray.push(e);
     });
     gameData.playerEmails = newEmailsArray;
