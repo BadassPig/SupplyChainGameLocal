@@ -48,23 +48,11 @@ function registerActions() {
         var player = data.player;
         var order = data.order;
         var counter = gameData.serverGameData.currentRound * gameData.numPlayers;
-        $.each(gameData.serverGameData.playerGameData, function(index, value) {
-          if (index === player) {
-            console.log('Updating td ' + '#tdOrderId' + counter + ' for ' + player);
-            $('#tdOrderId' + counter).html(order);
-            gameData.submittedCounter ++;
-            return false;
-          }
-          counter ++;
-        });
+        $('#tdOrderId' + counter).html(order);
+        gameData.submittedCounter ++;
         console.log('Submitted counter: ' + gameData.submittedCounter);
         console.log('num players : ' + gameData.numPlayers);
         enableNextRoundBtn(true);
-        // if (gameData.submittedCounter == gameData.numPlayers && gameData.serverGameData.currentRound < gameData.numRounds) {
-        //   console.log('All players have submitted orders.');
-        //   $('#btnNextRnd').prop("disabled", false);
-        // }
-        //$('#tdOrderId3').html(order);
       }, false);
   source.addEventListener('open', function(e) {
         console.log('EventSource connected');
@@ -92,6 +80,7 @@ function getGameStatus() {
         $('#btnEnd').prop("disabled", false);
       $('#inputNumberOfGroups').val(gameData.numPlayers);
       $('#inputNumberOfRounds').val(gameData.numRounds);
+      gameData.playerEmails = gameData.serverGameData.playerList;
       $('#inputPlayerEmails').val(gameData.serverGameData.playerList.join(';'));
       populateGameTable(gameData.serverGameData);
     }
@@ -117,7 +106,7 @@ function populateGameTable(response, all) {
         //console.log(index + ': ' + playerGameDisp);
         gameTableContent += '<tr>';
         gameTableContent += '<td>' + i + '</td>'; // Round
-        gameTableContent += '<td>' + index + '</td>'; // Player
+        gameTableContent += '<td>' + response.playerList[index] + '</td>'; // Player
         gameTableContent += '<td>' + playerGameDisp.demand + '</td>'; // Demand
         var tdOrderId = counter ++;
         gameTableContent += '<td id="tdOrderId' + tdOrderId + '">' + playerGameDisp.order + '</td>';  // order
@@ -251,7 +240,7 @@ function endGame(event) {
         console.log('Game ended.');
         $('#btnNextRnd').prop("disabled", true);
         $('#btnCalc').prop("disabled", true);
-        //$('#btnEnd').prop("disabled", true);
+        $('#btnEnd').prop("disabled", true);
       } else {
         alert('Save Game not successful.');
       }
@@ -315,6 +304,8 @@ function enableNextRoundBtn(eventSource) {  // @ eventSource function called fro
     if (gameData.numPlayers > 0 && !gameData.serverGameData.currentRoundCalculated)
       $('#btnCalc').prop("disabled", false);
   }
+  if (cRnd == 0 && gameData.playerEmails.length)
+    $('#btnNextRnd').prop('disabled', false);
 };
 
 function showPrevGameList(event) {

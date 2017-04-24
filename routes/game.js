@@ -4,7 +4,6 @@
 
 // TODO
 // Make game data per instructor
-// When game ends, save game data to DB
 // The way of creating multiple players is a bit naive, it's going to be more complicated when multiple instructor plays the game simutaneously
 // SSE is also going to get complicated for multi-instructor case.
 
@@ -28,12 +27,20 @@ var serverGameStatus = {
   currentRoundCalculated : false,
   instructorRequestOk: false,
   playerList: [],
-  playerGameData: {},  // playerName : [round Data]. [round data] is an array of objects
+  //playerGameData: {},  // playerName : [round Data]. [round data] is an array of objects
+  playerGameData : [], // [[player1 data],[player2 data]]. Because Mongo DB doesn't allow key to contain $ and ., just store player game data in arrays; the order of arrays are the same as player names in playerList
+  getPlayerGameData(player) {
+    var index = this.playerList.indexOf(player);
+    if (index == -1)
+      return [];
+    return this.playerGameData[index];
+  },
   setPlayerOrder(player, order, round) {  // set the order for player
     var currentRound = !round ? this.currentRound : round;
-    if (!this.playerGameData.hasOwnProperty(player) || this.playerGameData[player].length < currentRound)
+    var pD = this.getPlayerGameData(player);
+    if (pD.length < currentRound)
       return ;
-    (this.playerGameData[player])[currentRound].order = order;
+    pD[currentRound].order = order;
   },
   clear() { // There might be a better way in JS to do this.
     this.gameID = 0;
@@ -43,12 +50,13 @@ var serverGameStatus = {
     this.currentRoundCalculated = false;
     this.instructorRequestOk = false;
     this.playerList = [];
-    this.playerGameData = {};
+    //this.playerGameData = {};
+    this.playerGameData = [];
   }
 };  // keep a record at server. In the future this should be per session.
 
 var gameParam = {
-  totalSupply : 20,
+  supplyPerPlayer : 12.5,
   salePrice : 10,
   cost : 2,
   getProfit : function () {
@@ -62,7 +70,7 @@ function clearServerGameStatus() {
 
 // Save current game data to DB
 // This sequential code should be changed to call backs or promise
-function saveServerGameStatus(req, successCB, failCB) {
+function saveServerGameStatus(req, res) {
   var instructor = req.params.instructorID;
   var dbGameTable = req.db.get('gameData');
   var query = {
@@ -74,19 +82,26 @@ function saveServerGameStatus(req, successCB, failCB) {
     console.log('Game for instructor ' + instructor + ' at time ' + (new Date(serverGameStatus.gameID)) + ' already exists, override.');
     dbGameTable.remove(query);
   }
-  dbGameTable.insert( {
+  var query = {
     Time        : serverGameStatus.gameID,
     Instructor  : instructor,
     NumPlayer   : serverGameStatus.numPlayer,
     NumPeriod   : serverGameStatus.numRound,
-    GameData    : serverGameStatus},
+    GameData    : serverGameStatus
+  };
+  // console.log('About to insert into DB with query:');
+  // console.log(query);
+  dbGameTable.insert(query,
     function (err, result) {
       if (err) {
+        console.log('Saving game data failed at DB for the following reason:');
         console.log(err);
-        failCB(err);
-      } else
-      successCB();
-    });
+        res.send({instructorRequestOk: false});
+      } else {
+        clearServerGameStatus();
+        res.send({instructorRequestOk: true});
+    }
+  });
 }
 
 /*
@@ -105,11 +120,13 @@ function saveServerGameStatus(req, successCB, failCB) {
  router.get('/stream', sse.init);
 
  router.get('/getAllOldGame', function(req, res) {
-  var instructor = req.query.instructor;
   var dbGameTable = req.db.get('gameData');
-  var query = {
-    Instructor  : instructor
-  };
+  var query;
+  if (req.query.instructor)
+    query = { Instructor : req.query.instructor };
+  else
+    query = { };  // req.query.player should be in the playerList column
+
   dbGameTable.find(query).then(docs=>{
     if (docs) {
       // console.log('Found old game data for ' + instructor);
@@ -154,21 +171,16 @@ router.post('/startGame/:instructor', function(req, res) {
     clearServerGameStatus();
     serverGameStatus.numPlayer = req.body.numPlayers;
     serverGameStatus.numRound = req.body.numRounds;
-    // for (var i = 1; i <= serverGameStatus.numPlayer; ++ i) {
-    //   serverGameStatus.playerList.push('testPlayer' + i);
-    //   serverGameStatus.playerGameData['testPlayer' + i] = [];
-    // }
     
     // It seems if a JSON object is sent directly there are some serilization/deserilization tricks behid the scene.
-    console.log(typeof req.body['playerEmails[]']);
+    //console.log(typeof req.body['playerEmails[]']);
     let playerEmailsArray = [];
     if (typeof req.body['playerEmails[]'] === 'string')
       playerEmailsArray.push(req.body['playerEmails[]']);
     else
       playerEmailsArray = req.body['playerEmails[]'];
-    playerEmailsArray.forEach(function(e) {
-      //var playerName = e.slice(0, e.indexOf('@'));
-      var playerName = e;
+    for (var i = 0; i < playerEmailsArray.length; ++ i) {
+      var playerName = playerEmailsArray[i];
       // Because Mongo DB doesn't allow '$' and '.' in keys, replace them with '_' when creating player names
       // ['$', '.'].map(c=>{
       //   while(playerName.indexOf(c) != -1) {
@@ -177,11 +189,11 @@ router.post('/startGame/:instructor', function(req, res) {
       //   }
       // });
       serverGameStatus.playerList.push(playerName);
-      serverGameStatus.playerGameData[playerName] = [];
+      serverGameStatus.playerGameData[i] = [];
 
       // TODO: playerName could be the same
-      addUserToDB('player', playerName, req.params.instructor, req.db, e);
-    });
+      addUserToDB('player', playerName, req.params.instructor, req.db, playerName);
+    }
     serverGameStatus.instructorRequestOk = true;
     serverGameStatus.gameID = (new Date()).getTime();
     gameGen(serverGameStatus);
@@ -190,8 +202,12 @@ router.post('/startGame/:instructor', function(req, res) {
     //res.gameStartOk = true;
     //res.playerNames = serverGameStatus.playerList;
     // TODO: think about what need to be echoed back.
+    console.log('serverGameStatus:');
+    console.log(serverGameStatus);
     res.send(serverGameStatus);
-    ssePlayer.send(serverGameStatus.playerGameData);
+    serverGameStatus.playerList.map(function(player) {
+      ssePlayer.send({player : serverGameStatus.getPlayerGameData(player)});
+  });
 });
 
 router.post('/resetGame', function(req, res) {
@@ -202,12 +218,7 @@ router.post('/resetGame', function(req, res) {
 
 router.post('/endGame/:instructorID', function(req, res) {
   console.log('End game requested.');
-  saveServerGameStatus(req, function(){
-    clearServerGameStatus();
-    res.send({instructorRequestOk: true});
-  }, function (err) {
-    res.send({instructorRequestOk: false});
-  });
+  saveServerGameStatus(req, res);
 });
 
 /*
@@ -217,7 +228,9 @@ router.post('/nextRound', function(req, res) {
   serverGameStatus.currentRound ++;
   gameGen(serverGameStatus);
   res.send(serverGameStatus);
-  ssePlayer.send(serverGameStatus.playerGameData);
+  serverGameStatus.playerList.map(function(player) {
+    ssePlayer.send({player : serverGameStatus.getPlayerGameData(player)});
+  });
 });
 
 /*
@@ -226,7 +239,9 @@ router.post('/nextRound', function(req, res) {
 router.post('/calculate', function(req, res) {
   calcGameData(serverGameStatus);
   res.send(serverGameStatus);
-  ssePlayer.send(serverGameStatus.playerGameData);
+  serverGameStatus.playerList.map(function(player) {
+    ssePlayer.send({player : serverGameStatus.getPlayerGameData(player)});
+  });
 });
 
 router.delete('/deleteGame/:instructor/:gameID', function(req, res) {
@@ -256,15 +271,11 @@ router.get('/getPlayerTable/:player', function(req, res) {
       return ;
   }
   console.log('Player ' + player + ' just requested game table.');
-  if (serverGameStatus.playerGameData.hasOwnProperty(player)) {
-    // console.log('Sending data: ');
-    // console.log(serverGameStatus.playerGameData[player]);
-    res.send(serverGameStatus.playerGameData[player]);
-  }
-  else {
-    // Need to handle error correctl
+  var index = serverGameStatus.playerList.indexOf(player);
+  if (index >= 0)
+    res.send(serverGameStatus.playerGameData[index]);
+  else
     throw 'No record in playerGameData for ' + player;
-  }
 });
 
 router.get('/ssePlayerGameData', ssePlayer.init);
@@ -288,7 +299,8 @@ router.post('/submitOrder/:player', function(req, res) {
   var player = req.params.player;
   var order = req.body.newOrder;
   console.log('Received order ' + order + ' from ' + player);
-  var thisPlayerData = serverGameStatus.playerGameData[player];
+  //var thisPlayerData = serverGameStatus.playerGameData[player];
+  var thisPlayerData = serverGameStatus.getPlayerGameData(player);
   thisPlayerData[serverGameStatus.currentRound].order = order;
   serverGameStatus.setPlayerOrder(player, order);
   sse.send({player: player, order: order}, 'message');
@@ -327,20 +339,22 @@ function genRandomString(l)
  * Game number generator, this is at the beginning of round
  */
  function gameGen(serverGameStatus) {
-  //console.log('In gameGen()');
+  console.log('In gameGen()');
   var isDemoRound = serverGameStatus.currentRound === 0;
   serverGameStatus.currentRoundCalculated = isDemoRound;
-  for (var player in serverGameStatus.playerGameData) {
-    serverGameStatus.playerGameData[player].push({
-              //demand: isDemoRound ? 8.59 : parseFloat(getRandNum()),  // toFixed returns a string
-              demand: isDemoRound ? 8.59 : '',  // toFixed returns a string
-              ration: isDemoRound ? 12.5 : '',
-              sales: isDemoRound ? 8.59 : '',
-              lostSales: isDemoRound ? '0.00' : '',
-              surplusInv: isDemoRound ? 3.91 : '',
-              profit: isDemoRound ? 60.90 : '',
-              cumuProfit: isDemoRound ? 60.90 : '',
-              order: isDemoRound ? 12.5 : ''});
+  for (var i = 0; i < serverGameStatus.playerList.length; ++ i) {
+    serverGameStatus.playerGameData[i].push({
+      //demand: isDemoRound ? 8.59 : parseFloat(getRandNum()),  // toFixed returns a string
+      demand: isDemoRound ? 8.59 : '',  // toFixed returns a string
+      ration: isDemoRound ? 12.5 : '',
+      sales: isDemoRound ? 8.59 : '',
+      lostSales: isDemoRound ? '0.00' : '',
+      surplusInv: isDemoRound ? 3.91 : '',
+      profit: isDemoRound ? 60.90 : '',
+      cumuProfit: isDemoRound ? 60.90 : '',
+      order: isDemoRound ? 12.5 : ''
+    });
+    //console.log(serverGameStatus.playerGameData);
   }
  };
 
@@ -351,27 +365,24 @@ function calcGameData(serverGameStatus) {
   console.log('--- calcGameData ---');
   var c = serverGameStatus.currentRound;
   var totalOrd = 0;
-  for (var player in serverGameStatus.playerGameData) {
-    if (serverGameStatus.playerGameData.hasOwnProperty(player)) {
-      var pOrder = parseFloat((serverGameStatus.playerGameData[player])[c].order);
-      totalOrd += pOrder;
-    }
-  }
+
+  serverGameStatus.playerGameData.map(data => totalOrd += data[c].order);
   console.log('Total orders from all players: ' + totalOrd);
-  for (var player in serverGameStatus.playerGameData) {
-    if (serverGameStatus.playerGameData.hasOwnProperty(player)) {
-      var pD = (serverGameStatus.playerGameData[player])[c]; // Player Order Data for player for round c
-      var pDorder = parseFloat(pD.order);
-      pD.demand = parseFloat(getRandNum());
-      pD.ration = parseFloat((gameParam.totalSupply * pDorder / totalOrd).toFixed(2));
-      pD.sales = Math.min(parseFloat(pD.demand), parseFloat(pD.ration));
-      pD.lostSales = Math.max(pD.demand - pD.ration, 0).toFixed(2);
-      pD.surplusInv = parseFloat(Math.max(pD.ration - pD.demand, 0).toFixed(2));
-      pD.profit = parseFloat((pD.sales * gameParam.getProfit() - pD.surplusInv * gameParam.cost).toFixed(2));
-      if (c - 1 >= 0)
-        pD.cumuProfit = (parseFloat((serverGameStatus.playerGameData[player])[c - 1].cumuProfit) + pD.profit).toFixed(2);
-    }
-  }
+  var totalSupply = gameParam.supplyPerPlayer * serverGameStatus.numPlayer;
+  serverGameStatus.playerGameData.map( data => {
+    var pD = data[c];
+    var pDorder = parseFloat(pD.order);
+    pD.demand = parseFloat(getRandNum());
+    pD.ration = Math.min(pDorder, totalSupply * pDorder / totalOrd).toFixed(2);
+    //pD.ration = parseFloat((gameParam.supplyPerPlayer * pDorder / totalOrd).toFixed(2));
+    pD.sales = Math.min(parseFloat(pD.demand), parseFloat(pD.ration));
+    pD.lostSales = Math.max(pD.demand - pD.ration, 0).toFixed(2);
+    pD.surplusInv = parseFloat(Math.max(pD.ration - pD.demand, 0).toFixed(2));
+    pD.profit = parseFloat((pD.sales * gameParam.getProfit() - pD.surplusInv * gameParam.cost).toFixed(2));
+    if (c - 1 >= 0)
+      pD.cumuProfit = (parseFloat(data[c - 1].cumuProfit) + pD.profit).toFixed(2);
+  });
+
   serverGameStatus.currentRoundCalculated = true;
 };
 
