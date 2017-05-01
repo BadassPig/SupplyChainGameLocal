@@ -8,6 +8,7 @@ var gameData = {
   numRounds : 0,
   currentRound : 0,
   playerEmails : []
+  // serverGameData
   };
 var prevGameList = [];
 var pageData = {
@@ -47,11 +48,12 @@ function registerActions() {
         var cr = gameData.serverGameData.currentRound;
         var player = data.player;
         var order = data.order;
-        var counter = gameData.serverGameData.currentRound * gameData.numPlayers;
+        var counter = gameData.serverGameData.currentRound * gameData.numPlayers + gameData.playerEmails.indexOf(player);
+        console.log('SSE just received order ' + order + ' from player ' + player + ', and setting \#tdOrderId' + counter);
         $('#tdOrderId' + counter).html(order);
         gameData.submittedCounter ++;
-        console.log('Submitted counter: ' + gameData.submittedCounter);
-        console.log('num players : ' + gameData.numPlayers);
+        // console.log('Submitted counter: ' + gameData.submittedCounter);
+        // console.log('num players : ' + gameData.numPlayers);
         enableNextRoundBtn(true);
       }, false);
   source.addEventListener('open', function(e) {
@@ -82,6 +84,8 @@ function getGameStatus() {
       $('#inputNumberOfRounds').val(gameData.numRounds);
       gameData.playerEmails = gameData.serverGameData.playerList;
       $('#inputPlayerEmails').val(gameData.serverGameData.playerList.join(';'));
+      if (gameData.serverGameData.gameEnded)
+        $('#btnEnd').prop("disabled", true);
       populateGameTable(gameData.serverGameData);
     }
   });

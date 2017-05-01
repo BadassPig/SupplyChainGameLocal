@@ -5,6 +5,7 @@ var gameData = {
 };
 
 var pageData = {
+  playerID : '',
   showPrevGame : false,
   gameEnded : false
 }
@@ -12,9 +13,10 @@ var pageData = {
 // DOM Ready =============================================================
 $(document).ready(function() {
   var urlPath = window.location.pathname; //"/playerGamePage/testPlayer1"
-  gameData.name = urlPath.replace('/playerGamePage/', '');
+  pageData.playerID = urlPath.replace('/playerGamePage/', '');
   // At the begining client should fetch game data from server.
   $('#gameTable th:nth-child(2)').hide();  // hide player column
+  $('#prevGameListTable').hide();
   populateGameTable();
   registerActions();
 });
@@ -41,7 +43,7 @@ function registerActions() {
     var data = JSON.parse(e.data);
     // console.log('Received SSE update:');
     // console.log(data);
-    gameData.data = data[gameData.name];
+    gameData.data = data[pageData.playerID];
     // Should not re-request here!
     populateGameTable();
   }, false);
@@ -61,39 +63,68 @@ function registerActions() {
 
 function populateGameTable() {
   console.debug('Requesting playerTable');
-    $.getJSON( '/game/getPlayerTable/' + gameData.name, function( data ) {
+    $.getJSON( '/game/getPlayerTable/' + pageData.playerID, function( data ) {
       var gameTableContent;
       // console.log('Received response from server:');
       // console.log(data);
       gameData.data = data;
       gameData.openInput = -1;
+      populateGameTableWithData(data);
       // Always get last element of data.
-      data.forEach(function(element, index) {
-        gameTableContent += '<tr>';
-        gameTableContent += '<td>' + index + '</td>';  // Round
-        //gameTableContent += '<td>' + gameData.name + '</td>';  // Player
-        gameTableContent += '<td>' + element.demand + '</td>';  // Demand
-        gameTableContent += '<td><input id="input' + index + '" type="number" min="0" form="formGameTable" value="' + (element.order ? element.order : '') + '" disabled required></td>';  // order          
-        gameData.openInput = !element.order ? index : gameData.openInput;
-        gameTableContent += '<td>' + element.ration + '</td>';  // Ration
-        gameTableContent += '<td>' + element.sales + '</td>';  // Sales
-        gameTableContent += '<td>' + element.lostSales + '</td>';  // lost sales
-        gameTableContent += '<td>' + element.surplusInv + '</td>';  // Surplus Inventory
-        gameTableContent += '<td>' + element.profit + '</td>';  // Profit
-        gameTableContent += '<td>' + element.cumuProfit + '</td>';  // Cumulative Profit
-        gameTableContent += '</tr>';
-      });
-      // Append vs replace everything in table
-      //$('#gameTableBlock table tbody').append(gameTableContent);
-      $('#gameTableBlock table tbody').html(gameTableContent);
-      if (gameData.openInput !== -1) {
-        $('input[id="input' + gameData.openInput + '"]').prop('disabled', false);
-        $('#btnSubmitOrd').prop('disabled', false);
-      } else
-        $('#btnSubmitOrd').prop('disabled', true);
+      // data.forEach(function(element, index) {
+      //   gameTableContent += '<tr>';
+      //   gameTableContent += '<td>' + index + '</td>';  // Round
+      //   //gameTableContent += '<td>' + gameData.name + '</td>';  // Player
+      //   gameTableContent += '<td>' + element.demand + '</td>';  // Demand
+      //   gameTableContent += '<td><input id="input' + index + '" type="number" min="0" form="formGameTable" value="' + (element.order ? element.order : '') + '" disabled required></td>';  // order          
+      //   gameData.openInput = !element.order ? index : gameData.openInput;
+      //   gameTableContent += '<td>' + element.ration + '</td>';  // Ration
+      //   gameTableContent += '<td>' + element.sales + '</td>';  // Sales
+      //   gameTableContent += '<td>' + element.lostSales + '</td>';  // lost sales
+      //   gameTableContent += '<td>' + element.surplusInv + '</td>';  // Surplus Inventory
+      //   gameTableContent += '<td>' + element.profit + '</td>';  // Profit
+      //   gameTableContent += '<td>' + element.cumuProfit + '</td>';  // Cumulative Profit
+      //   gameTableContent += '</tr>';
+      // });
+      // // Append vs replace everything in table
+      // //$('#gameTableBlock table tbody').append(gameTableContent);
+      // $('#gameTableBlock table tbody').html(gameTableContent);
+      // if (gameData.openInput !== -1) {
+      //   $('input[id="input' + gameData.openInput + '"]').prop('disabled', false);
+      //   $('#btnSubmitOrd').prop('disabled', false);
+      // } else
+      //   $('#btnSubmitOrd').prop('disabled', true);
     }).fail(function() {
       $('#btnSubmitOrd').prop('disabled', true);
     });
+};
+
+function populateGameTableWithData(gameDataArray) {
+  if (Array.isArray(gameDataArray)) {
+    var gameTableContent = '';
+    gameDataArray.forEach(function(element, index) {
+      gameTableContent += '<tr>';
+      gameTableContent += '<td>' + index + '</td>';  // Round
+      gameTableContent += '<td>' + element.demand + '</td>';  // Demand
+      gameTableContent += '<td><input id="input' + index + '" type="number" min="0" form="formGameTable" value="' + (element.order ? element.order : '') + '" disabled required></td>';  // order          
+      gameData.openInput = !element.order ? index : gameData.openInput;
+      gameTableContent += '<td>' + element.ration + '</td>';  // Ration
+      gameTableContent += '<td>' + element.sales + '</td>';  // Sales
+      gameTableContent += '<td>' + element.lostSales + '</td>';  // lost sales
+      gameTableContent += '<td>' + element.surplusInv + '</td>';  // Surplus Inventory
+      gameTableContent += '<td>' + element.profit + '</td>';  // Profit
+      gameTableContent += '<td>' + element.cumuProfit + '</td>';  // Cumulative Profit
+      gameTableContent += '</tr>';
+    });
+    // Append vs replace everything in table
+    //$('#gameTableBlock table tbody').append(gameTableContent);
+    $('#gameTableBlock table tbody').html(gameTableContent);
+    if (gameData.openInput !== -1) {
+      $('input[id="input' + gameData.openInput + '"]').prop('disabled', false);
+      $('#btnSubmitOrd').prop('disabled', false);
+    } else
+      $('#btnSubmitOrd').prop('disabled', true);
+  }
 };
 
 function sendOrder(event){
@@ -110,7 +141,7 @@ function sendOrder(event){
   $.ajax({
     type : 'POST',
     data : orderData,
-    url : '/game/submitOrder/' + gameData.name,
+    url : '/game/submitOrder/' + pageData.playerID,
     dataType : 'JSON'
     }).done(function(res) {
       // For some reason this is not called.
@@ -124,11 +155,11 @@ function sendOrder(event){
 
 function logoutUser(event) {
   event.preventDefault();
-  console.debug('Logging out user ' + gameData.name);
+  console.debug('Logging out user ' + pageData.playerID);
   $.ajax(
   {
     type  : 'GET',
-    url   : '/users/logout/' + gameData.name
+    url   : '/users/logout/' + pageData.playerID
   }).done(function( response ) {
     console.log('Log out action successful!');
     // There should be better way of doing this. For example just echo response on page.
@@ -149,7 +180,7 @@ function showPrevGameList(event) {
 
     // Make JSON request to get live data every time the button is toggled.
     // Still trying to figure out if instructorID should be URL parameter or in JSON
-    $.getJSON( '/game/getAllOldGame', {player: gameData.name}, function( data ) {
+    $.getJSON( '/game/getAllOldGame', {player: pageData.playerID}, function( data ) {
       // Data will be an array of historical game info
       // Example: [{"Time":1489115942142,"NumPlayer":"2","NumPeriod":"2"},{"Time":1489118499196,"NumPlayer":"2","NumPeriod":"3"}]
       prevGameList = data;
@@ -176,10 +207,10 @@ function showPrevGameList(event) {
         $('#prevGameListTable select').val('select');
         $('#prevGameListTable tbody tr:eq(' + row + ') select').val(sel);
         if (sel == 'view') {
-          $.getJSON('/game/getOldGameById', {gameID : selectedGameId, instructor : pageData.instructorID}, function(data) {
+          $.getJSON('/game/getOldGameById', {gameID : selectedGameId, player : pageData.playerID}, function(data) {
             //console.log(data);
             $('#btnNextRnd').prop("disabled", true);
-            populateGameTable(data.GameData);
+            populateGameTableWithData(data);
           });
         }
         // else if (sel == 'delete') {

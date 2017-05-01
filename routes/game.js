@@ -26,6 +26,7 @@ var serverGameStatus = {
   currentRound: 0,
   currentRoundCalculated : false,
   instructorRequestOk: false,
+  gameEnded: false,
   playerList: [],
   //playerGameData: {},  // playerName : [round Data]. [round data] is an array of objects
   playerGameData : [], // [[player1 data],[player2 data]]. Because Mongo DB doesn't allow key to contain $ and ., just store player game data in arrays; the order of arrays are the same as player names in playerList
@@ -49,6 +50,7 @@ var serverGameStatus = {
     this.currentRound = 0;
     this.currentRoundCalculated = false;
     this.instructorRequestOk = false;
+    this.gameEnded = false;
     this.playerList = [];
     //this.playerGameData = {};
     this.playerGameData = [];
@@ -121,12 +123,14 @@ function saveServerGameStatus(req, res) {
 
  router.get('/getAllOldGame', function(req, res) {
   var dbGameTable = req.db.get('gameData');
-  var query;
+  var query = {};
   if (req.query.instructor)
-    query = { Instructor : req.query.instructor };
+    //query = { Instructor : req.query.instructor };
+    query.Instructor = req.query.instructor;
   else
-    query = { };  // req.query.player should be in the playerList column
+    query["GameData.playerList"] = {$all:["long.adams@gmail.com"]};
 
+  // Should limit what this find returns, only need a game list here not the entire game.
   dbGameTable.find(query).then(docs=>{
     if (docs) {
       // console.log('Found old game data for ' + instructor);
@@ -152,13 +156,33 @@ function saveServerGameStatus(req, res) {
  router.get('/getOldGameById', function(req, res) {
   var gameId = req.query.gameID;
   var instructor = req.query.instructor;
-  console.log('Instructor ' + instructor + ' just requested old game ' + gameId);
+  var player = req.query.player;
+  console.log((instructor ? 'Instructor ' : 'Player ') + (instructor || player) + ' just requested old game ' + gameId);
   var dbGameTable = req.db.get('gameData');
-  dbGameTable.find({Time : parseInt(gameId), Instructor : instructor })
+  var query = {Time : parseInt(gameId)};
+  if (instructor)
+    query.Instructor = instructor;
+  else {
+    query["GameData.playerList"] = {$all:["long.adams@gmail.com"]};
+  }
+  // console.log('DB query:');
+  // console.log(query);
+  //db.gameData.find({"GameData.playerList" : {$all:["long.adams@gmail.com"]}});
+  dbGameTable.find(query)
   .then(docs=>{
+    console.log('DB found ' + docs.length + ' records for ' + (instructor || player));
     if (docs) {  // Should be unique
-      res.send(docs[0]);
+      // Should only send game data for the player if it's player request.
+      if (player) {
+        var index = docs[0].GameData.playerList.indexOf(player);
+        //console.log('The index in game list of player ' + player + ' is ' + index);
+        if (index != -1)
+          res.send(docs[0].GameData.playerGameData[index]);
+      } else
+        res.send(docs[0]);
     }
+  }, error=> {
+    console.log('DB find failed with error ' + error);
   });
  });
 
@@ -219,6 +243,7 @@ router.post('/resetGame', function(req, res) {
 router.post('/endGame/:instructorID', function(req, res) {
   console.log('End game requested.');
   saveServerGameStatus(req, res);
+  gameData.gameEnded = true;
 });
 
 /*
@@ -366,14 +391,14 @@ function calcGameData(serverGameStatus) {
   var c = serverGameStatus.currentRound;
   var totalOrd = 0;
 
-  serverGameStatus.playerGameData.map(data => totalOrd += data[c].order);
-  console.log('Total orders from all players: ' + totalOrd);
+  serverGameStatus.playerGameData.map(data => totalOrd += parseFloat(data[c].order));
   var totalSupply = gameParam.supplyPerPlayer * serverGameStatus.numPlayer;
+  console.log('Total orders from all players: ' + totalOrd + ', total supply ' + totalSupply);
   serverGameStatus.playerGameData.map( data => {
     var pD = data[c];
     var pDorder = parseFloat(pD.order);
     pD.demand = parseFloat(getRandNum());
-    pD.ration = Math.min(pDorder, totalSupply * pDorder / totalOrd).toFixed(2);
+    pD.ration = Math.min(pDorder, (totalSupply * pDorder) / totalOrd).toFixed(2);
     //pD.ration = parseFloat((gameParam.supplyPerPlayer * pDorder / totalOrd).toFixed(2));
     pD.sales = Math.min(parseFloat(pD.demand), parseFloat(pD.ration));
     pD.lostSales = Math.max(pD.demand - pD.ration, 0).toFixed(2);
