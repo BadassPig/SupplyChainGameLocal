@@ -15,6 +15,8 @@ var sse = new SSE();  // SSE connection for instructor
 var ssePlayer = new SSE(); // sse connection for player.
 var passport = require('passport');
 const nodemailer = require('nodemailer');
+// var app = express();
+// var io = app.io;
 
 
 // Data structure for the game.
@@ -65,6 +67,8 @@ var gameParam = {
     return this.salePrice - this.cost;
   }
 };
+
+var socketIOconns = {}; // {<instructor> : [player1, player2]};
 
 function clearServerGameStatus() {
   serverGameStatus.clear();
@@ -461,4 +465,15 @@ function emailUser(email, text) {
   });
 }
 
-module.exports = router;
+//module.exports = router;
+// Make io available in routes and define io functionality in routes instead of app.js
+module.exports = function(io) {
+  io.on('connection', function(socket) {
+    console.log('Socket.io connection.');
+    socket.on('add instructor', function(instructor) {
+      console.log('Socket.io: ' + 'instructor ' + instructor + ' just connected.');
+    });
+  });
+
+  return router;
+};

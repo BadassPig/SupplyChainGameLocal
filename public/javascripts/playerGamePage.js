@@ -70,30 +70,6 @@ function populateGameTable() {
       gameData.data = data;
       gameData.openInput = -1;
       populateGameTableWithData(data);
-      // Always get last element of data.
-      // data.forEach(function(element, index) {
-      //   gameTableContent += '<tr>';
-      //   gameTableContent += '<td>' + index + '</td>';  // Round
-      //   //gameTableContent += '<td>' + gameData.name + '</td>';  // Player
-      //   gameTableContent += '<td>' + element.demand + '</td>';  // Demand
-      //   gameTableContent += '<td><input id="input' + index + '" type="number" min="0" form="formGameTable" value="' + (element.order ? element.order : '') + '" disabled required></td>';  // order          
-      //   gameData.openInput = !element.order ? index : gameData.openInput;
-      //   gameTableContent += '<td>' + element.ration + '</td>';  // Ration
-      //   gameTableContent += '<td>' + element.sales + '</td>';  // Sales
-      //   gameTableContent += '<td>' + element.lostSales + '</td>';  // lost sales
-      //   gameTableContent += '<td>' + element.surplusInv + '</td>';  // Surplus Inventory
-      //   gameTableContent += '<td>' + element.profit + '</td>';  // Profit
-      //   gameTableContent += '<td>' + element.cumuProfit + '</td>';  // Cumulative Profit
-      //   gameTableContent += '</tr>';
-      // });
-      // // Append vs replace everything in table
-      // //$('#gameTableBlock table tbody').append(gameTableContent);
-      // $('#gameTableBlock table tbody').html(gameTableContent);
-      // if (gameData.openInput !== -1) {
-      //   $('input[id="input' + gameData.openInput + '"]').prop('disabled', false);
-      //   $('#btnSubmitOrd').prop('disabled', false);
-      // } else
-      //   $('#btnSubmitOrd').prop('disabled', true);
     }).fail(function() {
       $('#btnSubmitOrd').prop('disabled', true);
     });

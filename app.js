@@ -9,17 +9,23 @@ var bodyParser = require('body-parser');
 var passport = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 var session = require('express-session');
+var socket_io  = require('socket.io');
 
 // Database
 var mongo = require('mongodb');
 var monk = require('monk');
 var db = monk('localhost:27017/supplyChainGame_1');
 
+var app = express();
+
+// set io in app
+var io = socket_io();
+app.io = io;
+
 var routes = require('./routes/index');
 var users = require('./routes/users');
-var game = require('./routes/game');
+var game = require('./routes/game')(io);
 
-var app = express();
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -56,8 +62,8 @@ passport.deserializeUser(function(user, done) {
   //console.log('passport.deserializeUser');
   done(null, user);
 });
-app.use(passport.initialize());
-app.use(passport.session());
+// app.use(passport.initialize());
+// app.use(passport.session());
 
 // Make our db accessible to our router
 app.use(function(req,res,next){
@@ -123,6 +129,5 @@ passport.use(new LocalStrategy(
         return done(null, docs);
     });
 }));
-
 
 module.exports = app;

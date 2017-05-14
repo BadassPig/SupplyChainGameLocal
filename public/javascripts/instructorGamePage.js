@@ -17,10 +17,13 @@ var pageData = {
   gameEnded : false // Button pressed and confirmed?
 };
 
+var socket = io();
+
 // DOM Ready =============================================================
 $(document).ready(function() {
   var urlPath = window.location.pathname;
   pageData.instructorID = urlPath.replace('/instructorGamePage/', '');
+  //var io = io.connect();
   // Populate the user table on initial page load
   // At the begining client should fetch game data from server.
   getGameStatus(); // If a game has already begun, get game data.
@@ -68,6 +71,8 @@ function registerActions() {
         console.log('Connecting to EventSource.');
       }
     }, false);
+
+  socket.emit('add instructor', pageData.instructorID);
 };
 
 function getGameStatus() {
