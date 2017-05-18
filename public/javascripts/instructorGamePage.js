@@ -33,6 +33,7 @@ $(document).ready(function() {
 function registerActions() {
   $('#formSetupGame #btnStart').on('click', startGame);
   $('#formSetupGame #btnReset').on('click', resetGame);
+  $('#btnLogout').on('click', logout);
   $('#formSetupGame #btnEnd').on('click', endGame);
   $('#btnNextRnd').on('click', nextRound);
   $('#btnCalc').on('click', calculate);
@@ -43,36 +44,41 @@ function registerActions() {
   $('#prevGameListTable').hide();
 
   // Event source related
-  var source = new EventSource('/game/stream');
-  source.addEventListener('message', function(e) {
-        if (!e)
-          return ;
-        var data = JSON.parse(e.data);
-        var cr = gameData.serverGameData.currentRound;
-        var player = data.player;
-        var order = data.order;
-        var counter = gameData.serverGameData.currentRound * gameData.numPlayers + gameData.playerEmails.indexOf(player);
-        console.log('SSE just received order ' + order + ' from player ' + player + ', and setting \#tdOrderId' + counter);
-        $('#tdOrderId' + counter).html(order);
-        gameData.submittedCounter ++;
-        // console.log('Submitted counter: ' + gameData.submittedCounter);
-        // console.log('num players : ' + gameData.numPlayers);
-        enableNextRoundBtn(true);
-      }, false);
-  source.addEventListener('open', function(e) {
-        console.log('EventSource connected');
-      }, false);
+  //var source = new EventSource('/game/stream');
+  // source.addEventListener('message', function(e) {
+  //       if (!e)
+  //         return ;
+  //       var data = JSON.parse(e.data);
+  //       var cr = gameData.serverGameData.currentRound;
+  //       var player = data.player;
+  //       var order = data.order;
+  //       var counter = gameData.serverGameData.currentRound * gameData.numPlayers + gameData.playerEmails.indexOf(player);
+  //       console.log('SSE just received order ' + order + ' from player ' + player + ', and setting \#tdOrderId' + counter);
+  //       $('#tdOrderId' + counter).html(order);
+  //       gameData.submittedCounter ++;
+  //       enableNextRoundBtn(true);
+  //     }, false);
+  // source.addEventListener('open', function(e) {
+  //       console.log('EventSource connected');
+  //     }, false);
 
-  source.addEventListener('error', function(e) {
-      if (e.target.readyState == EventSource.CLOSED) {
-        console.log('EventSource disconnected.');
-      }
-      else if (e.target.readyState == EventSource.CONNECTING) {
-        console.log('Connecting to EventSource.');
-      }
-    }, false);
+  // source.addEventListener('error', function(e) {
+  //     if (e.target.readyState == EventSource.CLOSED) {
+  //       console.log('EventSource disconnected.');
+  //     }
+  //     else if (e.target.readyState == EventSource.CONNECTING) {
+  //       console.log('Connecting to EventSource.');
+  //     }
+  //   }, false);
 
   socket.emit('add instructor', pageData.instructorID);
+  socket.on('player submit order', function (data) {
+    var counter = gameData.serverGameData.currentRound * gameData.numPlayers + gameData.playerEmails.indexOf(data.player);
+    console.log('SocketIO just received order ' + data.order + ' from player ' + data.player + ', and setting \#tdOrderId' + counter);
+        $('#tdOrderId' + counter).html(data.order);
+        gameData.submittedCounter ++;
+        enableNextRoundBtn(true);
+  });
 };
 
 function getGameStatus() {
@@ -104,7 +110,7 @@ function getGameStatus() {
 function populateGameTable(response, all) {
   var gameTableContent;
   //console.log(gameData);
-  console.log(response.playerGameData);
+  //console.log(response.playerGameData);
   //var counter = response.currentRound * gameData.numPlayers;
   var counter = 0;
   for (var i = 0; i <= response.currentRound; ++ i) {
@@ -216,7 +222,7 @@ function resetGame(event) {
     $.ajax({
             type: 'POST',
             data: {},
-            url: '/game/resetGame',
+            url: '/game/resetGame/' + pageData.instructorID,
             dataType: 'JSON'
         }).done(function( response ) {
           if (response.instructorRequestOk === true) {
@@ -224,6 +230,21 @@ function resetGame(event) {
           }
         });
   }
+};
+
+function logout(event) {
+  console.log('Logging out instructor ' + pageData.instructorID);
+  $.ajax(
+  {
+    type  : 'GET',
+    url   : '/users/logout/' + pageData.instructorID
+  }).done(function( response ) {
+    console.log('Log out action successful!');
+    // There should be better way of doing this. For example just echo response on page.
+    window.location.reload();
+  }).fail(function(res) {
+    console.log('Log out action failed!');
+  });
 };
 
 function endGame(event) {

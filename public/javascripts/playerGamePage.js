@@ -10,6 +10,8 @@ var pageData = {
   gameEnded : false
 }
 
+var socket = io();
+
 // DOM Ready =============================================================
 $(document).ready(function() {
   var urlPath = window.location.pathname; //"/playerGamePage/testPlayer1"
@@ -38,27 +40,36 @@ function registerActions() {
   $('#logout').on('click', logoutUser);
 
   // Sever Sent Event
-  var source = new EventSource('/game/ssePlayerGameData');
-  source.addEventListener('message', function(e) {
-    var data = JSON.parse(e.data);
-    // console.log('Received SSE update:');
-    // console.log(data);
-    gameData.data = data[pageData.playerID];
+  // var source = new EventSource('/game/ssePlayerGameData');
+  // source.addEventListener('message', function(e) {
+  //   var data = JSON.parse(e.data);
+  //   // console.log('Received SSE update:');
+  //   // console.log(data);
+  //   gameData.data = data[pageData.playerID];
+  //   // Should not re-request here!
+  //   populateGameTable();
+  // }, false);
+  // source.addEventListener('open', function(e) {
+  //   console.log('EventSource connected');
+  // }, false);
+
+  // source.addEventListener('error', function(e) {
+  //   if (e.target.readyState == EventSource.CLOSED) {
+  //     console.log('E`gventSource disconnected.');
+  //   }
+  //   else if (e.target.readyState == EventSource.CONNECTING) {
+  //     console.log('Connecting to EventSource.');
+  //   }
+  // }, false);
+
+  // socket io
+  socket.emit('add player', pageData.playerID);
+  socket.on('calculation result', function (data) {
+    console.log('Calculation result received via SocketIO.');
+    gameData.data = data;
     // Should not re-request here!
     populateGameTable();
-  }, false);
-  source.addEventListener('open', function(e) {
-    console.log('EventSource connected');
-  }, false);
-
-  source.addEventListener('error', function(e) {
-    if (e.target.readyState == EventSource.CLOSED) {
-      console.log('E`gventSource disconnected.');
-    }
-    else if (e.target.readyState == EventSource.CONNECTING) {
-      console.log('Connecting to EventSource.');
-    }
-  }, false);
+  });
 };
 
 function populateGameTable() {

@@ -10,9 +10,9 @@
 
 var express = require('express');
 var router = express.Router();
-var SSE = require('express-sse');
-var sse = new SSE();  // SSE connection for instructor
-var ssePlayer = new SSE(); // sse connection for player.
+// var SSE = require('express-sse');
+// var sse = new SSE();  // SSE connection for instructor
+// var ssePlayer = new SSE(); // sse connection for player.
 var passport = require('passport');
 const nodemailer = require('nodemailer');
 // var app = express();
@@ -68,7 +68,9 @@ var gameParam = {
   }
 };
 
-var socketIOconns = {}; // {<instructor> : [player1, player2]};
+var playerInstructorMap = {}; // <player> : <instructor>
+
+var socketIOconns = {}; // {user : socket};
 
 function clearServerGameStatus() {
   serverGameStatus.clear();
@@ -123,7 +125,7 @@ function saveServerGameStatus(req, res) {
   res.send(serverGameStatus);
  });
 
- router.get('/stream', sse.init);
+ //router.get('/stream', sse.init);
 
  router.get('/getAllOldGame', function(req, res) {
   var dbGameTable = req.db.get('gameData');
@@ -209,15 +211,9 @@ router.post('/startGame/:instructor', function(req, res) {
       playerEmailsArray = req.body['playerEmails[]'];
     for (var i = 0; i < playerEmailsArray.length; ++ i) {
       var playerName = playerEmailsArray[i];
-      // Because Mongo DB doesn't allow '$' and '.' in keys, replace them with '_' when creating player names
-      // ['$', '.'].map(c=>{
-      //   while(playerName.indexOf(c) != -1) {
-      //     let i = playerName.indexOf(c);
-      //     playerName = playerName.substr(0, i) + '_' + playerName.substr(i + 1);
-      //   }
-      // });
       serverGameStatus.playerList.push(playerName);
       serverGameStatus.playerGameData[i] = [];
+      playerInstructorMap[playerName] = req.params.instructor;
 
       // TODO: playerName could be the same
       addUserToDB('player', playerName, req.params.instructor, req.db, playerName);
@@ -234,18 +230,19 @@ router.post('/startGame/:instructor', function(req, res) {
     console.log(serverGameStatus);
     res.send(serverGameStatus);
     serverGameStatus.playerList.map(function(player) {
-      ssePlayer.send({player : serverGameStatus.getPlayerGameData(player)});
+      //ssePlayer.send({player : serverGameStatus.getPlayerGameData(player)});
+      socketIOconns[player].emit('calculation result', serverGameStatus.getPlayerGameData(player));
   });
 });
 
-router.post('/resetGame', function(req, res) {
-  console.log('Game data reset.');
+router.post('/resetGame/:instructorID', function(req, res) {
+  console.log('Instructor ' + req.param.instructorID + ' just requested game reset.');
   clearServerGameStatus();
   res.send({instructorRequestOk: true});
 });
 
 router.post('/endGame/:instructorID', function(req, res) {
-  console.log('End game requested.');
+  console.log('Instructor ' + req.param.instructorID + ' just requested game end.');
   saveServerGameStatus(req, res);
   gameData.gameEnded = true;
 });
@@ -258,7 +255,8 @@ router.post('/nextRound', function(req, res) {
   gameGen(serverGameStatus);
   res.send(serverGameStatus);
   serverGameStatus.playerList.map(function(player) {
-    ssePlayer.send({player : serverGameStatus.getPlayerGameData(player)});
+    //ssePlayer.send({player : serverGameStatus.getPlayerGameData(player)});
+    socketIOconns[player].emit('calculation result', serverGameStatus.getPlayerGameData(player));
   });
 });
 
@@ -269,7 +267,8 @@ router.post('/calculate', function(req, res) {
   calcGameData(serverGameStatus);
   res.send(serverGameStatus);
   serverGameStatus.playerList.map(function(player) {
-    ssePlayer.send({player : serverGameStatus.getPlayerGameData(player)});
+    //ssePlayer.send({player : serverGameStatus.getPlayerGameData(player)});
+    socketIOconns[player].emit('calculation result', serverGameStatus.getPlayerGameData(player));
   });
 });
 
@@ -307,7 +306,7 @@ router.get('/getPlayerTable/:player', function(req, res) {
     throw 'No record in playerGameData for ' + player;
 });
 
-router.get('/ssePlayerGameData', ssePlayer.init);
+//router.get('/ssePlayerGameData', ssePlayer.init);
 
 // authenticate user request.
 // This probably should happen in middleware.
@@ -332,7 +331,9 @@ router.post('/submitOrder/:player', function(req, res) {
   var thisPlayerData = serverGameStatus.getPlayerGameData(player);
   thisPlayerData[serverGameStatus.currentRound].order = order;
   serverGameStatus.setPlayerOrder(player, order);
-  sse.send({player: player, order: order}, 'message');
+  //sse.send({player: player, order: order}, 'message');
+  //console.log(playerInstructorMap);
+  socketIOconns[playerInstructorMap[player]].emit('player submit order', {player: player, order: order});
   res.send({'submitOK' : true});
 });
 
@@ -368,7 +369,7 @@ function genRandomString(l)
  * Game number generator, this is at the beginning of round
  */
  function gameGen(serverGameStatus) {
-  console.log('In gameGen()');
+  //console.log('In gameGen()');
   var isDemoRound = serverGameStatus.currentRound === 0;
   serverGameStatus.currentRoundCalculated = isDemoRound;
   for (var i = 0; i < serverGameStatus.playerList.length; ++ i) {
@@ -469,11 +470,21 @@ function emailUser(email, text) {
 // Make io available in routes and define io functionality in routes instead of app.js
 module.exports = function(io) {
   io.on('connection', function(socket) {
-    console.log('Socket.io connection.');
+    //console.log('Socket.io connection.');
     socket.on('add instructor', function(instructor) {
       console.log('Socket.io: ' + 'instructor ' + instructor + ' just connected.');
+      socketIOconns[instructor] = socket;
+    });
+    socket.on('add player', function(player) {
+      console.log('Socket.io: ' + 'player ' + player + ' just connected.');
+      socketIOconns[player] = socket;
+    });
+    socket.on('disconnect', function() {
+      console.log('Socket.io: ' + 'User disconnected.');
     });
   });
+
+
 
   return router;
 };
