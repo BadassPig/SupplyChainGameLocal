@@ -134,7 +134,8 @@ function saveServerGameStatus(req, res) {
     //query = { Instructor : req.query.instructor };
     query.Instructor = req.query.instructor;
   else
-    query["GameData.playerList"] = {$all:["long.adams@gmail.com"]};
+    //query["GameData.playerList"] = {$all:["long.adams@gmail.com"]};
+    query["GameData.playerList"] = {$all:[req.query.player]};
 
   // Should limit what this find returns, only need a game list here not the entire game.
   dbGameTable.find(query).then(docs=>{
@@ -169,7 +170,8 @@ function saveServerGameStatus(req, res) {
   if (instructor)
     query.Instructor = instructor;
   else {
-    query["GameData.playerList"] = {$all:["long.adams@gmail.com"]};
+    //query["GameData.playerList"] = {$all:["long.adams@gmail.com"]};
+    query["GameData.playerList"] = {$all:[player]};
   }
   // console.log('DB query:');
   // console.log(query);
