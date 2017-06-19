@@ -54,8 +54,18 @@ var serverGameStatus = {
     this.instructorRequestOk = false;
     this.gameEnded = false;
     this.playerList = [];
-    //this.playerGameData = {};
     this.playerGameData = [];
+  },
+  // Only clears game data; number of rounds and player list don't change
+  gameDataClear() {
+    this.currentRound = 0;
+    this.currentRoundCalculated = false;
+    this.gameEnded = false;
+    //this.playerList = [],
+    this.playerGameData = [];
+    this.playerList.map(obj=>{
+      this.playerGameData.push([]);
+    })
   }
 };  // keep a record at server. In the future this should be per session.
 
@@ -232,19 +242,29 @@ router.post('/startGame/:instructor', function(req, res) {
     console.log(serverGameStatus);
     res.send(serverGameStatus);
     serverGameStatus.playerList.map(function(player) {
-      //ssePlayer.send({player : serverGameStatus.getPlayerGameData(player)});
       socketIOconns[player].emit('calculation result', serverGameStatus.getPlayerGameData(player));
   });
 });
 
+router.post('/restartGame/:instructorID', function(req, res) {
+  console.log('Instructor ' + req.params.instructorID + ' just requested game restart.');
+  //clearServerGameStatus();
+  serverGameStatus.gameDataClear();
+  gameGen(serverGameStatus);
+  serverGameStatus.playerList.map(function(player) {
+    socketIOconns[player].emit('game restart', {});
+  });
+  res.send({instructorRequestOk: true});
+});
+
 router.post('/resetGame/:instructorID', function(req, res) {
-  console.log('Instructor ' + req.param.instructorID + ' just requested game reset.');
+  console.log('Instructor ' + req.params.instructorID + ' just requested game reset.');
   clearServerGameStatus();
   res.send({instructorRequestOk: true});
 });
 
 router.post('/endGame/:instructorID', function(req, res) {
-  console.log('Instructor ' + req.param.instructorID + ' just requested game end.');
+  console.log('Instructor ' + req.params.instructorID + ' just requested game end.');
   saveServerGameStatus(req, res);
   gameData.gameEnded = true;
 });

@@ -1,15 +1,15 @@
-'use strict'
+'use strict';
 
 // Game page from instructor's perspective
 // This is a single page application.
+
 var gameData = {
   submittedCounter : 0, // This is a counter
   numPlayers : 0,
   numRounds : 0,
   currentRound : 0,
   playerEmails : []
-  // serverGameData
-  };
+};
 var prevGameList = [];
 var pageData = {
   instructorID  : '',
@@ -32,6 +32,7 @@ $(document).ready(function() {
 
 function registerActions() {
   $('#formSetupGame #btnStart').on('click', startGame);
+  $('#formSetupGame #btnRestartStart').on('click', restartGame);
   $('#formSetupGame #btnReset').on('click', resetGame);
   $('#btnLogout').on('click', logout);
   $('#formSetupGame #btnEnd').on('click', endGame);
@@ -42,34 +43,6 @@ function registerActions() {
   $('#btnEnd').prop("disabled", true);
   $('#btnShowPrev').on('click', showPrevGameList);
   $('#prevGameListTable').hide();
-
-  // Event source related
-  //var source = new EventSource('/game/stream');
-  // source.addEventListener('message', function(e) {
-  //       if (!e)
-  //         return ;
-  //       var data = JSON.parse(e.data);
-  //       var cr = gameData.serverGameData.currentRound;
-  //       var player = data.player;
-  //       var order = data.order;
-  //       var counter = gameData.serverGameData.currentRound * gameData.numPlayers + gameData.playerEmails.indexOf(player);
-  //       console.log('SSE just received order ' + order + ' from player ' + player + ', and setting \#tdOrderId' + counter);
-  //       $('#tdOrderId' + counter).html(order);
-  //       gameData.submittedCounter ++;
-  //       enableNextRoundBtn(true);
-  //     }, false);
-  // source.addEventListener('open', function(e) {
-  //       console.log('EventSource connected');
-  //     }, false);
-
-  // source.addEventListener('error', function(e) {
-  //     if (e.target.readyState == EventSource.CLOSED) {
-  //       console.log('EventSource disconnected.');
-  //     }
-  //     else if (e.target.readyState == EventSource.CONNECTING) {
-  //       console.log('Connecting to EventSource.');
-  //     }
-  //   }, false);
 
   socket.emit('add instructor', pageData.instructorID);
   socket.on('player submit order', function (data) {
@@ -179,13 +152,6 @@ function startGame(event) {
         alert('Invalid e-mail ' + e);
         return ;
       }
-      // Because Mongo DB doesn't allow '$' and '.' in keys, replace them with '_' when creating player names
-      // ['$', '.'].map(c=>{
-      //   while(e.indexOf(c) != -1) {
-      //     let i = e.indexOf(c);
-      //     e = e.substr(0, i) + '_' + e.substr(i + 1);
-      //   }
-      // });
       newEmailsArray.push(e);
     });
     gameData.playerEmails = newEmailsArray;
@@ -213,6 +179,28 @@ function startGame(event) {
     alert('Please fill fields with valid values.');
   }
 };
+
+/* Restart game without modifying game setup.
+*/
+function restartGame(event) {
+  event.preventDefault();
+  var r = confirm('Do you want to restart game with the same players?');
+  if (r) {
+    $.ajax({
+        type: 'POST',
+        data: {},
+        url: '/game/restartGame/' + pageData.instructorID,
+        dataType: 'JSON'
+    }).done(function( res ) {
+      if (res.instructorRequestOk) {
+        //console.log('Game restart successful.');
+        //gameData.restartGame();
+        getGameStatus();
+        //startGame(event);
+      }
+    })
+  }
+}
 
 function resetGame(event) {
   event.preventDefault();

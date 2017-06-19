@@ -74,7 +74,11 @@ router.get('/', function(req, res, next) {
   //        userPassword: '123456' } ] }
   if (req.isAuthenticated()) { // Session still in effect
     console.log('Session still available for ' + req.session.passport.user[0].userName);
-    res.redirect('/playerGamePage/' + req.session.passport.user[0].userName);
+    var role = req.session.passport.user[0].userRole;
+    if (role === 'player')
+      res.redirect('/playerGamePage/' + req.session.passport.user[0].userName);
+    else if (role === 'instructor')
+      res.redirect('/instructorGamePage/' + req.session.passport.user[0].userName);
   }
   else
     res.render('index', { title: 'Login Page', user: '' });

@@ -70,6 +70,14 @@ function registerActions() {
     // Should not re-request here!
     populateGameTable();
   });
+  socket.on('game restart', function (data) {
+    gameData.data = {};
+    populateGameTable();
+  });
+  socket.on('game reset', function (data) {
+    gameData.data = {};
+    populateGameTable();
+  });
 };
 
 function populateGameTable() {
@@ -119,8 +127,8 @@ function sendOrder(event){
   //console.log('Submit order clicked!');
   var orderData = {newOrder : 0};
   orderData.newOrder = $('input[id="input' + gameData.openInput + '"]').val();
-  if (!orderData.newOrder || orderData.newOrder < 0) {
-    $('#pErr').text('Order needs to be set and greater than 0.0');
+  if (!orderData.newOrder || orderData.newOrder <= 0 || orderData.newOrder > 1e6) {
+    $('#pErr').text('Order needs to be set and greater than 0.0 and smaller than 1,000,000.0');
     return ;
   } else
     $('#pErr').text('');
