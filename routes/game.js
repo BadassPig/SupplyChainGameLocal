@@ -126,6 +126,10 @@ function saveServerGameStatus(req, res) {
  * Instructor HTTP request handle START
  */
 
+  router.get('/instructorGetGameParams', function(req, res){
+  res.send(gameParam);
+ });
+
 /*
  * Get game data. In case instructor refresh page during the game.
  */
@@ -213,6 +217,9 @@ router.post('/startGame/:instructor', function(req, res) {
     clearServerGameStatus();
     serverGameStatus.numPlayer = req.body.numPlayers;
     serverGameStatus.numRound = req.body.numRounds;
+    gameParam.supplyPerPlayer = req.body.supplyPerPlayer;
+    gameParam.salePrice = req.body.salePrice;
+    gameParam.cost = req.body.cost;
     
     // It seems if a JSON object is sent directly there are some serilization/deserilization tricks behid the scene.
     //console.log(typeof req.body['playerEmails[]']);
@@ -266,7 +273,7 @@ router.post('/resetGame/:instructorID', function(req, res) {
 router.post('/endGame/:instructorID', function(req, res) {
   console.log('Instructor ' + req.params.instructorID + ' just requested game end.');
   saveServerGameStatus(req, res);
-  gameData.gameEnded = true;
+  serverGameStatus.gameEnded = true;
 });
 
 /*

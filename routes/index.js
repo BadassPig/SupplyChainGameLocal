@@ -50,7 +50,8 @@ router.get('/playerGamePage/:player', function(req, res, next) {
   }
   // Doesn't matter what player page the user requests, direct to his page!
   //console.log(req.session.passport);
-  var player = req.session.passport.user[0].userName;
+  //var player = req.session.passport.user[0].userName;
+  var player = req.params.player;
   console.log('Validated request of playerGamePage for ' + player);
   res.render('playerGamePage', { title: player + ' Game Page' });
 });

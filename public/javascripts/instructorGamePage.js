@@ -8,7 +8,8 @@ var gameData = {
   numPlayers : 0,
   numRounds : 0,
   currentRound : 0,
-  playerEmails : []
+  playerEmails : [],
+  gameParams : {}
 };
 var prevGameList = [];
 var pageData = {
@@ -25,6 +26,7 @@ $(document).ready(function() {
   pageData.instructorID = urlPath.replace('/instructorGamePage/', '');
   //var io = io.connect();
   // Populate the user table on initial page load
+  getGameParams();
   // At the begining client should fetch game data from server.
   getGameStatus(); // If a game has already begun, get game data.
   registerActions();
@@ -51,6 +53,29 @@ function registerActions() {
         $('#tdOrderId' + counter).html(data.order);
         gameData.submittedCounter ++;
         enableNextRoundBtn(true);
+  });
+};
+
+/* Enable/disable certain common controls. E.g, after game starts btnStart, inputNumberOfGroups and inputNumberOfRounds etc, should all be disabled.
+  @param enable : boolean, true = control enabled.
+*/
+function disableControls(enable) {
+  $('#btnStart').prop('disabled', !enable);
+  $('#inputNumberOfGroups').prop('disabled', !enable);
+  $('#inputNumberOfRounds').prop('disabled', !enable);
+  $('#inputPlayerEmails').prop('disabled', !enable);
+  $('#selectAllocationRule').prop('disabled', !enable);
+  $('#inputSupplyPerPlayer').prop('disabled', !enable);
+  $('#inputSalePrice').prop('disabled', !enable);
+  $('#inputCost').prop('disabled', !enable);
+};
+
+function getGameParams() {
+  $.getJSON( '/game/instructorGetGameParams', {instructor: pageData.instructorID}, function( data ) {
+    $('#inputSupplyPerPlayer').val(data.supplyPerPlayer);
+    $('#inputSalePrice').val(data.salePrice);
+    $('#inputCost').val(data.cost);
+    gameData.gameParams = data;
   });
 };
 
@@ -111,13 +136,13 @@ function populateGameTable(response, all) {
   }
 
   $('#gameTable tbody').html(gameTableContent);
-  //$('#gameTableBlock table tbody').append(gameTableContent);
   // Disable start game button.
-  $('#formSetupGame #btnStart').prop('disabled', true);
-  $('#inputNumberOfGroups').prop('disabled', true);
-  $('#inputNumberOfRounds').prop('disabled', true);
-  $('#selectAllocationRule').prop('disabled', true);
-  $('#inputPlayerEmails').prop('disabled', true);
+  // $('#formSetupGame #btnStart').prop('disabled', true);
+  // $('#inputNumberOfGroups').prop('disabled', true);
+  // $('#inputNumberOfRounds').prop('disabled', true);
+  // $('#selectAllocationRule').prop('disabled', true);
+  // $('#inputPlayerEmails').prop('disabled', true);
+  disableControls(false);
   enableNextRoundBtn();
 };
 
@@ -136,6 +161,9 @@ function startGame(event) {
     // Probably can do assignment while validating values so don't need to select DOM objects more than once
     gameData.numPlayers = $('#formSetupGame #inputNumberOfGroups').val();
     gameData.numRounds = $('#formSetupGame #inputNumberOfRounds').val();
+    gameData.supplyPerPlayer = parseFloat($('#inputSupplyPerPlayer').val());
+    gameData.salePrice = parseFloat($('#inputSalePrice').val());
+    gameData.cost = parseFloat($('#inputCost').val());
     var emailStr = $('#inputPlayerEmails').val();
     // First truncate spaces
     emailStr = emailStr.replace(/\s+/g, '');

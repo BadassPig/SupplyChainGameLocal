@@ -1,28 +1,35 @@
 include layout.pug
 
 block content
-	script(src='/javascripts/playerGamePage.js')
-	link(rel='stylesheet', href='/stylesheets/instructorGamePage.css')
+  script(src='/javascripts/playerGamePage.js')
+  link(rel='stylesheet', href='/stylesheets/instructorGamePage.css')
 
-	h1= title
-	button#logout Logout
+  h1= title
+  button#logout Logout
 
-	// GAME DATA
-	h2 Current Game
+  // GAME DATA
+  h2 Current Game
 
-	include commonGameTable.pug
-	input#btnSubmitOrd(type='submit')
-	p#pErr
+  include commonGameTable.pug
+  input#btnSubmitOrd(type='submit')
+  p#pErr
 
-	// PREVIOUS GAME
-	h2 Previous Games
-	button#btnShowPrev Show Game List
+  table#financialReport
+        thead
+          th Player
+          th Profit
+          th Cumulative Profit
+        tbody
 
-	//#prevGameList	
-	table#prevGameListTable
-		thead
-			th Time
-			th Number Player
-			th Number Round
-			th Action
-		tbody
+  // PREVIOUS GAME
+  h2 Previous Games
+  button#btnShowPrev Show Game List
+
+  //#prevGameList  
+  table#prevGameListTable
+    thead
+      th Time
+      th Number Player
+      th Number Round
+      th Action
+    tbody

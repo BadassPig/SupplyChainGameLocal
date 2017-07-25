@@ -9,10 +9,10 @@ block content
 	#formSetupGame
 		form
 			|Number of Groups: 
-			input#inputNumberOfGroups(type="text", placeholder="Number of Groups")
+			input#inputNumberOfGroups(type="number", placeholder="Number of Groups")
 			br
 			|Number of Rounds: 
-			input#inputNumberOfRounds(type="text", placeholder="Number of Rounds")
+			input#inputNumberOfRounds(type="number", placeholder="Number of Rounds")
 			br
 			|Player E-mails (To send login credentials, seperated by ';'): 
 			input#inputPlayerEmails(type="text", placeholder="Player E-mails", size="50")
@@ -21,6 +21,12 @@ block content
 			select#selectAllocationRule
 				option(value="Proportion") Proportion
 				option(value="Rule#2") Rule#2
+			| Supply per player: 
+			input#inputSupplyPerPlayer(type="number")
+			| Sale Price: 
+			input#inputSalePrice(type="number")
+			| Cost: 
+			input#inputCost(type="number")
 			br
 			button#btnStart Start Game
 			button#btnRestartStart Restart Game

@@ -1,23 +1,23 @@
-#gameTableBlock, #prevGameList {
+#gameTableBlock, #prevGameList, #financialReport{
 	margin:0 0 30px 0;
 }
-	#gameTableBlock table, #prevGameListTable {
+	#gameTableBlock table, #prevGameListTable, #financialReport {
 		border-collapse:separate;
 		border-spacing:1px;
 		background:#CCC;
 	}
-		#gameTableBlock table th, #prevGameListTable th {
+		#gameTableBlock table th, #prevGameListTable th, #financialReport th{
 			background:#EEE;
 			font-weight:600;
 			padding:10px 20px;
 			text-align:center;
 		}
-		#gameTableBlock table tbody, #prevGameListTable tbody {
+		#gameTableBlock table tbody, #prevGameListTable tbody, #financialReport tbody{
 			padding:0; margin:0;
 			border-collapse:collapse;
 			border-spacing:0px;
 		}
-			#gameTableBlock table td, #prevGameListTable td {
+			#gameTableBlock table td, #prevGameListTable td, #financialReport td{
 				background:#FFF;
 				padding:5px 10px;
 				text-align:center;
