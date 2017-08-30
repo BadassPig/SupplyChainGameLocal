@@ -82,7 +82,7 @@ function getGameParams() {
 function getGameStatus() {
   $.getJSON( '/game/instructorGetGameData', {instructor: pageData.instructorID}, function( data ) {
     gameData.serverGameData = data;
-    if (data.playerList.length) {
+    if (!jQuery.isEmptyObject(data) && data.playerList.length) {
       gameData.numPlayers = parseInt(gameData.serverGameData.numPlayer);
       gameData.numRounds = parseInt(gameData.serverGameData.numRound);
       //gameData.submittedCounter = gameData.numPlayers;
@@ -287,6 +287,7 @@ function endGame(event) {
         $('#btnNextRnd').prop("disabled", true);
         $('#btnCalc').prop("disabled", true);
         $('#btnEnd').prop("disabled", true);
+        $('#btnRestartStart').prop("disabled", true);
       } else {
         alert('Save Game not successful.');
       }
@@ -300,7 +301,7 @@ function nextRound(event) {
   $.ajax({
         type: 'POST',
         data: {},
-        url: '/game/nextRound',
+        url: '/game/nextRound/' + pageData.instructorID,
         dataType: 'JSON'
     }).done(function( response ) {
       console.log('Next round successful.');
@@ -324,7 +325,7 @@ function calculate(event) {
   $.ajax({
         type: 'POST',
         data: {},
-        url: '/game/calculate',
+        url: '/game/calculate/' + pageData.instructorID,
         dataType: 'JSON'
     }).done(function( response ) {
       gameData.submittedCounter = 0;
@@ -407,7 +408,7 @@ function showPrevGameList(event) {
               //dataType: 'JSON'
             }).done( function (response) {
               console.log('Delete ' + selectedGameId + ' successful.');
-              prevGameList.splice(row);
+              prevGameList.splice(row, 1);
               // Repoulate game list
               populatePrevGameList(prevGameList);
             }).fail( function (jqXHR, textStatus) {

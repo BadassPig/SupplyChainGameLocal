@@ -5,7 +5,6 @@
 // TODO
 // Make game data per instructor
 // The way of creating multiple players is a bit naive, it's going to be more complicated when multiple instructor plays the game simutaneously
-// SSE is also going to get complicated for multi-instructor case.
 
 
 var express = require('express');
@@ -18,94 +17,158 @@ const nodemailer = require('nodemailer');
 // var app = express();
 // var io = app.io;
 
-
-// Data structure for the game.
-// Not saving per instructor game data at this point.
-var serverGameStatus = {
-  gameID : 0,
-  numPlayer: 0, 
-  numRound: 0,
-  currentRound: 0,
-  currentRoundCalculated : false,
-  instructorRequestOk: false,
-  gameEnded: false,
-  playerList: [],
-  //playerGameData: {},  // playerName : [round Data]. [round data] is an array of objects
-  playerGameData : [], // [[player1 data],[player2 data]]. Because Mongo DB doesn't allow key to contain $ and ., just store player game data in arrays; the order of arrays are the same as player names in playerList
-  getPlayerGameData(player) {
+function ServerGameStatus() {
+  this.gameID       = 0;
+  this.numPlayer    = 0;
+  this.numRound     = 0;
+  this.currentRound = 0;
+  this.currentRoundCalculated = false;
+  this.instructorRequestOk    = false;
+  this.gameEnded              = false;
+  this.playerList     = [];
+  this.playerGameData = []; // [[player1 data],[player2 data]]. Because Mongo DB doesn't allow key to contain $ and ., just store player game data in arrays; the order of arrays are the same as player names in playerList
+  this.getPlayerGameData = function( player ) {
     var index = this.playerList.indexOf(player);
     if (index == -1)
       return [];
     return this.playerGameData[index];
-  },
-  setPlayerOrder(player, order, round) {  // set the order for player
+  };
+  this.setPlayerOrder = function( player, order, round ) {  // set the order for player
     var currentRound = !round ? this.currentRound : round;
     var pD = this.getPlayerGameData(player);
     if (pD.length < currentRound)
       return ;
     pD[currentRound].order = order;
-  },
-  clear() { // There might be a better way in JS to do this.
-    this.gameID = 0;
-    this.numPlayer = 0;
-    this.numRound = 0;
+  };
+  this.clear = function () {
+    this.gameID       = 0;
+    this.numPlayer    = 0;
+    this.numRound     = 0;
     this.currentRound = 0;
     this.currentRoundCalculated = false;
-    this.instructorRequestOk = false;
-    this.gameEnded = false;
-    this.playerList = [];
+    this.instructorRequestOk    = false;
+    this.gameEnded              = false;
+    this.playerList     = [];
     this.playerGameData = [];
-  },
-  // Only clears game data; number of rounds and player list don't change
-  gameDataClear() {
-    this.currentRound = 0;
+  };
+  this.gameDataClear = function () {
+    this.currentRound   = 0;
     this.currentRoundCalculated = false;
-    this.gameEnded = false;
-    //this.playerList = [],
+    this.gameEnded              = false;
     this.playerGameData = [];
     this.playerList.map(obj=>{
       this.playerGameData.push([]);
     })
   }
-};  // keep a record at server. In the future this should be per session.
+}
 
-var gameParam = {
-  supplyPerPlayer : 12.5,
-  salePrice : 10,
-  cost : 2,
-  getProfit : function () {
+// Data structure for the game.
+// var serverGameStatus = {
+//   gameID : 0, // A timestamp of game creation time
+//   numPlayer: 0, 
+//   numRound: 0,
+//   currentRound: 0,
+//   currentRoundCalculated : false,
+//   instructorRequestOk: false,
+//   gameEnded: false,
+//   playerList: [],
+//   playerGameData : [], // [[player1 data],[player2 data]]. Because Mongo DB doesn't allow key to contain $ and ., just store player game data in arrays; the order of arrays are the same as player names in playerList
+//   getPlayerGameData(player) {
+//     var index = this.playerList.indexOf(player);
+//     if (index == -1)
+//       return [];
+//     return this.playerGameData[index];
+//   },
+//   setPlayerOrder(player, order, round) {  // set the order for player
+//     var currentRound = !round ? this.currentRound : round;
+//     var pD = this.getPlayerGameData(player);
+//     if (pD.length < currentRound)
+//       return ;
+//     pD[currentRound].order = order;
+//   },
+//   clear() { // There might be a better way in JS to do this.
+//     this.gameID = 0;
+//     this.numPlayer = 0;
+//     this.numRound = 0;
+//     this.currentRound = 0;
+//     this.currentRoundCalculated = false;
+//     this.instructorRequestOk = false;
+//     this.gameEnded = false;
+//     this.playerList = [];
+//     this.playerGameData = [];
+//   },
+//   // Only clears game data; number of rounds and player list don't change
+//   gameDataClear() {
+//     this.currentRound = 0;
+//     this.currentRoundCalculated = false;
+//     this.gameEnded = false;
+//     this.playerGameData = [];
+//     this.playerList.map(obj=>{
+//       this.playerGameData.push([]);
+//     })
+//   }
+// };  // keep a record at server. In the future this should be per session.
+
+var gameDataPerInstructor = {}; // {<instructorId> : <serverGameStatus>}
+
+// var gameParam = {
+//   supplyPerPlayer : 12.5,
+//   salePrice : 10,
+//   cost : 2,
+//   getProfit : function () {
+//     return this.salePrice - this.cost;
+//   }
+// };
+
+function GameParam() {
+  this.supplyPerPlayer = 12.5;
+  this.salePrice       = 10;
+  this.cost            = 2;
+  this.getProfit = function () {
     return this.salePrice - this.cost;
-  }
+  };
 };
+
+var gameParamPerInstructor = {};
 
 var playerInstructorMap = {}; // <player> : <instructor>
 
 var socketIOconns = {}; // {user : socket};
 
-function clearServerGameStatus() {
-  serverGameStatus.clear();
+function clearServerGameStatus(instructor) {
+  if (gameDataPerInstructor[instructor])
+    gameDataPerInstructor[instructor].clear();
+  else
+    console.log('clearServerGameStatus invoked for ' + instructor + ' but game data not found.');
+  //serverGameStatus.clear();
 }
 
 // Save current game data to DB
 // This sequential code should be changed to call backs or promise
 function saveServerGameStatus(req, res) {
   var instructor = req.params.instructorID;
+  if (!gameDataPerInstructor[instructor]) {
+    console.log('Can\'t find game data for ' + instructor + ', saveServerGameStatus failed.');
+    res.send({instructorRequestOk: false});
+    return ;
+  }
+  var thisData = gameDataPerInstructor[instructor];  // shorter var name
   var dbGameTable = req.db.get('gameData');
   var query = {
-    Time        : serverGameStatus.gameID,
+    Time        : thisData.gameID,
     Instructor  : instructor
   };
-  console.log('Saving game data for instructor ' + instructor + ' game ID ' + serverGameStatus.gameID);
+  console.log('Saving game data for instructor ' + instructor + ' game ID ' + query.Time);
   if (dbGameTable.count(query) > 0) {
-    console.log('Game for instructor ' + instructor + ' at time ' + (new Date(serverGameStatus.gameID)) + ' already exists, override.');
+    console.log('Game for instructor ' + instructor + ' at time ' + (new Date(query.Time)) + ' already exists, override.');
     dbGameTable.remove(query);
   }
-  var query = {
-    Time        : serverGameStatus.gameID,
+  query = {
+    Time        : thisData.gameID,
     Instructor  : instructor,
-    NumPlayer   : serverGameStatus.numPlayer,
-    NumPeriod   : serverGameStatus.numRound,
-    GameData    : serverGameStatus
+    NumPlayer   : thisData.numPlayer,
+    NumPeriod   : thisData.numRound,
+    GameData    : thisData
   };
   // console.log('About to insert into DB with query:');
   // console.log(query);
@@ -116,7 +179,7 @@ function saveServerGameStatus(req, res) {
         console.log(err);
         res.send({instructorRequestOk: false});
       } else {
-        clearServerGameStatus();
+        clearServerGameStatus(instructor);
         res.send({instructorRequestOk: true});
     }
   });
@@ -125,30 +188,37 @@ function saveServerGameStatus(req, res) {
 /*
  * Instructor HTTP request handle START
  */
-
-  router.get('/instructorGetGameParams', function(req, res){
-  res.send(gameParam);
- });
+router.get('/instructorGetGameParams', function(req, res){
+  var instructor = req.params.instructorID;
+  if (gameParamPerInstructor[instructor])
+    res.send(gameParamPerInstructor[instructor].gameParam);
+  else
+    res.send(new GameParam());  // Send default
+});
 
 /*
  * Get game data. In case instructor refresh page during the game.
  */
- router.get('/instructorGetGameData', function(req, res){
+router.get('/instructorGetGameData', function(req, res){
   // Request sent using $.getJSON(), where data is appended to URL as a query string
+  var ins = req.query.instructor;
   //console.log('Instructor ' + req.query.instructor + ' just requested game data.');
-  res.send(serverGameStatus);
- });
+  if (gameDataPerInstructor[ins])
+    res.send(gameDataPerInstructor[ins]);
+  else {
+    //console.log('Failed instructorGetGameData route, can\'t find game data for ' + ins);
+    res.send({});
+  }
+});
 
- //router.get('/stream', sse.init);
-
- router.get('/getAllOldGame', function(req, res) {
+router.get('/getAllOldGame', function(req, res) {
   var dbGameTable = req.db.get('gameData');
   var query = {};
-  if (req.query.instructor)
+  var ins = req.query.instructor;
+  if (ins)
     //query = { Instructor : req.query.instructor };
-    query.Instructor = req.query.instructor;
+    query.Instructor = ins;
   else
-    //query["GameData.playerList"] = {$all:["long.adams@gmail.com"]};
     query["GameData.playerList"] = {$all:[req.query.player]};
 
   // Should limit what this find returns, only need a game list here not the entire game.
@@ -169,12 +239,12 @@ function saveServerGameStatus(req, res) {
 
       res.send(respond);
     } else {
-      console.log('Old game data for ' + instructor + ' not found.');
+      console.log('Old game data for ' + ins + ' not found.');
     }
   });
  });
 
- router.get('/getOldGameById', function(req, res) {
+router.get('/getOldGameById', function(req, res) {
   var gameId = req.query.gameID;
   var instructor = req.query.instructor;
   var player = req.query.player;
@@ -206,98 +276,122 @@ function saveServerGameStatus(req, res) {
   }, error=> {
     console.log('DB find failed with error ' + error);
   });
- });
+});
 
 /*
  * POST to start game.
  */
 router.post('/startGame/:instructor', function(req, res) {
-    //var db = req.db;
-    console.log('Received game start request from ' + req.params.instructor);
-    clearServerGameStatus();
-    serverGameStatus.numPlayer = req.body.numPlayers;
-    serverGameStatus.numRound = req.body.numRounds;
-    gameParam.supplyPerPlayer = req.body.supplyPerPlayer;
-    gameParam.salePrice = req.body.salePrice;
-    gameParam.cost = req.body.cost;
-    
-    // It seems if a JSON object is sent directly there are some serilization/deserilization tricks behid the scene.
-    //console.log(typeof req.body['playerEmails[]']);
-    let playerEmailsArray = [];
-    if (typeof req.body['playerEmails[]'] === 'string')
-      playerEmailsArray.push(req.body['playerEmails[]']);
-    else
-      playerEmailsArray = req.body['playerEmails[]'];
-    for (var i = 0; i < playerEmailsArray.length; ++ i) {
-      var playerName = playerEmailsArray[i];
-      serverGameStatus.playerList.push(playerName);
-      serverGameStatus.playerGameData[i] = [];
-      playerInstructorMap[playerName] = req.params.instructor;
+  //var db = req.db;
+  var ins = req.params.instructor;
+  console.log('Received game start request from ' + ins);
+  // clear game status if exists otherwise create instance of gameServerStatus
+  var thisData = gameDataPerInstructor[ins];
+  if (thisData)
+    clearServerGameStatus(ins);
+  else 
+    thisData = gameDataPerInstructor[ins] = new ServerGameStatus();
+  var thisData = gameDataPerInstructor[ins];
+  thisData.numPlayer = req.body.numPlayers;
+  thisData.numRound = req.body.numRounds;
+  var thisParam = gameParamPerInstructor[ins];
+  if (thisParam) {
+    thisParam.supplyPerPlayer = req.body.supplyPerPlayer;
+    thisParam.salePrice = req.body.salePrice;
+    thisParam.cost = req.body.cost;
+  } else
+    thisParam = gameParamPerInstructor[ins] = new GameParam();
+  
+  // It seems if a JSON object is sent directly there are some serilization/deserilization tricks behid the scene.
+  //console.log(typeof req.body['playerEmails[]']);
+  let playerEmailsArray = [];
+  if (typeof req.body['playerEmails[]'] === 'string')
+    playerEmailsArray.push(req.body['playerEmails[]']);
+  else
+    playerEmailsArray = req.body['playerEmails[]'];
+  for (var i = 0; i < playerEmailsArray.length; ++ i) {
+    var playerName = playerEmailsArray[i];
+    thisData.playerList.push(playerName);
+    thisData.playerGameData[i] = [];
+    playerInstructorMap[playerName] = req.params.instructor;
 
-      // TODO: playerName could be the same
-      addUserToDB('player', playerName, req.params.instructor, req.db, playerName);
-    }
-    serverGameStatus.instructorRequestOk = true;
-    serverGameStatus.gameID = (new Date()).getTime();
-    gameGen(serverGameStatus);
-    //console.log(serverGameStatus);
+    // TODO: playerName could be the same
+    addUserToDB('player', playerName, req.params.instructor, req.db, playerName);
+  }
+  thisData.instructorRequestOk = true;
+  thisData.gameID = (new Date()).getTime();
+  gameGen(thisData);
+  //console.log(serverGameStatus);
 
-    //res.gameStartOk = true;
-    //res.playerNames = serverGameStatus.playerList;
-    // TODO: think about what need to be echoed back.
-    console.log('serverGameStatus:');
-    console.log(serverGameStatus);
-    res.send(serverGameStatus);
-    serverGameStatus.playerList.map(function(player) {
-      socketIOconns[player].emit('calculation result', serverGameStatus.getPlayerGameData(player));
+  //res.gameStartOk = true;
+  //res.playerNames = serverGameStatus.playerList;
+  //console.log('serverGameStatus:');
+  //console.log(thisData);
+  res.send(thisData);
+  thisData.playerList.map(function(player) {
+    if (socketIOconns[player])
+      socketIOconns[player].emit('calculation result', thisData.getPlayerGameData(player));
   });
 });
 
 router.post('/restartGame/:instructorID', function(req, res) {
-  console.log('Instructor ' + req.params.instructorID + ' just requested game restart.');
-  //clearServerGameStatus();
-  serverGameStatus.gameDataClear();
-  gameGen(serverGameStatus);
-  serverGameStatus.playerList.map(function(player) {
-    socketIOconns[player].emit('game restart', {});
+  var ins = req.params.instructorID;
+  console.log('Instructor ' + ins + ' just requested game restart.');
+  var thisData = gameDataPerInstructor[ins];
+  thisData.gameDataClear();
+  thisData.gameID = (new Date()).getTime();
+  gameGen(thisData);
+  // console.log('Game data after restart:');
+  // console.log(thisData);
+  thisData.playerList.map(function(player) {
+    if (socketIOconns[player])
+      //socketIOconns[player].emit('game restart', {});
+      socketIOconns[player].emit('calculation result', thisData.getPlayerGameData(player));
   });
+  //res.send(thisData);
   res.send({instructorRequestOk: true});
 });
 
 router.post('/resetGame/:instructorID', function(req, res) {
-  console.log('Instructor ' + req.params.instructorID + ' just requested game reset.');
-  clearServerGameStatus();
+  var ins = req.params.instructorID;
+  console.log('Instructor ' + ins + ' just requested game reset.');
+  clearServerGameStatus(ins);
   res.send({instructorRequestOk: true});
 });
 
 router.post('/endGame/:instructorID', function(req, res) {
-  console.log('Instructor ' + req.params.instructorID + ' just requested game end.');
+  var ins = req.params.instructorID;
+  console.log('Instructor ' + ins + ' just requested game end.');
   saveServerGameStatus(req, res);
-  serverGameStatus.gameEnded = true;
+  gameDataPerInstructor[ins].gameEnded = true;
 });
 
 /*
  * POST to go to next round.
  */
-router.post('/nextRound', function(req, res) {
-  serverGameStatus.currentRound ++;
-  gameGen(serverGameStatus);
-  res.send(serverGameStatus);
-  serverGameStatus.playerList.map(function(player) {
-    //ssePlayer.send({player : serverGameStatus.getPlayerGameData(player)});
-    socketIOconns[player].emit('calculation result', serverGameStatus.getPlayerGameData(player));
+router.post('/nextRound/:instructorID', function(req, res) {
+  var ins = req.params.instructorID;
+  var thisData = gameDataPerInstructor[ins];
+  thisData.currentRound ++;
+  gameGen(thisData);
+  res.send(thisData);
+  thisData.playerList.map(function(player) {
+    if (socketIOconns[player])
+      socketIOconns[player].emit('calculation result', thisData.getPlayerGameData(player));
   });
 });
 
 /*
  * POST to calculate per round result.
  */
-router.post('/calculate', function(req, res) {
-  calcGameData(serverGameStatus);
-  res.send(serverGameStatus);
-  serverGameStatus.playerList.map(function(player) {
-    //ssePlayer.send({player : serverGameStatus.getPlayerGameData(player)});
-    socketIOconns[player].emit('calculation result', serverGameStatus.getPlayerGameData(player));
+router.post('/calculate/:instructorID', function(req, res) {
+  var ins = req.params.instructorID;
+  var thisData = gameDataPerInstructor[ins];
+  calcGameData(ins, thisData);
+  res.send(thisData);
+  thisData.playerList.map(function(player) {
+    if (socketIOconns[player])
+      socketIOconns[player].emit('calculation result', thisData.getPlayerGameData(player));
   });
 });
 
@@ -323,19 +417,23 @@ router.delete('/deleteGame/:instructor/:gameID', function(req, res) {
 
 router.get('/getPlayerTable/:player', function(req, res) {
   var player = req.params.player;
+  var ins = playerInstructorMap[player];
   if (!req.isAuthenticated()) {
       console.log('getPlayerTable for ' + player + ' can\'t be authenticated.');
       return ;
   }
   console.log('Player ' + player + ' just requested game table.');
-  var index = serverGameStatus.playerList.indexOf(player);
+  var thisData = gameDataPerInstructor[ins];
+  if (!thisData) {
+    res.send({}); // No current game for player.
+    return ;
+  }
+  var index = thisData.playerList.indexOf(player);
   if (index >= 0)
-    res.send(serverGameStatus.playerGameData[index]);
+    res.send(thisData.playerGameData[index]);
   else
     throw 'No record in playerGameData for ' + player;
 });
-
-//router.get('/ssePlayerGameData', ssePlayer.init);
 
 // authenticate user request.
 // This probably should happen in middleware.
@@ -355,14 +453,14 @@ router.get('/getPlayerTable/:player', function(req, res) {
 router.post('/submitOrder/:player', function(req, res) {
   var player = req.params.player;
   var order = req.body.newOrder;
+  var ins = playerInstructorMap[player];
   console.log('Received order ' + order + ' from ' + player);
-  //var thisPlayerData = serverGameStatus.playerGameData[player];
-  var thisPlayerData = serverGameStatus.getPlayerGameData(player);
-  thisPlayerData[serverGameStatus.currentRound].order = order;
-  serverGameStatus.setPlayerOrder(player, order);
-  //sse.send({player: player, order: order}, 'message');
-  //console.log(playerInstructorMap);
-  socketIOconns[playerInstructorMap[player]].emit('player submit order', {player: player, order: order});
+  var thisGameData = gameDataPerInstructor[ins];
+  var thisPlayerData = thisGameData.getPlayerGameData(player);
+  thisPlayerData[thisGameData.currentRound].order = order;
+  thisGameData.setPlayerOrder(player, order);
+  if (socketIOconns[ins])
+    socketIOconns[ins].emit('player submit order', {player: player, order: order});
   res.send({'submitOK' : true});
 });
 
@@ -420,12 +518,13 @@ function genRandomString(l)
  /*
   * Calculate game data after all players have submitted orders.
   */
-function calcGameData(serverGameStatus) {
+function calcGameData(instructor, serverGameStatus) {
   console.log('--- calcGameData ---');
   var c = serverGameStatus.currentRound;
   var totalOrd = 0;
 
   serverGameStatus.playerGameData.map(data => totalOrd += parseFloat(data[c].order));
+  var gameParam = gameParamPerInstructor[instructor] ? gameParamPerInstructor[instructor] : new GameParam();
   var totalSupply = gameParam.supplyPerPlayer * serverGameStatus.numPlayer;
   console.log('Total orders from all players: ' + totalOrd + ', total supply ' + totalSupply);
   serverGameStatus.playerGameData.map( data => {
