@@ -295,12 +295,11 @@ router.post('/startGame/:instructor', function(req, res) {
   thisData.numPlayer = req.body.numPlayers;
   thisData.numRound = req.body.numRounds;
   var thisParam = gameParamPerInstructor[ins];
-  if (thisParam) {
-    thisParam.supplyPerPlayer = req.body.supplyPerPlayer;
-    thisParam.salePrice = req.body.salePrice;
-    thisParam.cost = req.body.cost;
-  } else
+  if (!thisParam)
     thisParam = gameParamPerInstructor[ins] = new GameParam();
+  thisParam.supplyPerPlayer = req.body.supplyPerPlayer;
+  thisParam.salePrice = req.body.salePrice;
+  thisParam.cost = req.body.cost;
   
   // It seems if a JSON object is sent directly there are some serilization/deserilization tricks behid the scene.
   //console.log(typeof req.body['playerEmails[]']);
