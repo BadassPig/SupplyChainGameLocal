@@ -62,63 +62,7 @@ function ServerGameStatus() {
   }
 }
 
-// Data structure for the game.
-// var serverGameStatus = {
-//   gameID : 0, // A timestamp of game creation time
-//   numPlayer: 0, 
-//   numRound: 0,
-//   currentRound: 0,
-//   currentRoundCalculated : false,
-//   instructorRequestOk: false,
-//   gameEnded: false,
-//   playerList: [],
-//   playerGameData : [], // [[player1 data],[player2 data]]. Because Mongo DB doesn't allow key to contain $ and ., just store player game data in arrays; the order of arrays are the same as player names in playerList
-//   getPlayerGameData(player) {
-//     var index = this.playerList.indexOf(player);
-//     if (index == -1)
-//       return [];
-//     return this.playerGameData[index];
-//   },
-//   setPlayerOrder(player, order, round) {  // set the order for player
-//     var currentRound = !round ? this.currentRound : round;
-//     var pD = this.getPlayerGameData(player);
-//     if (pD.length < currentRound)
-//       return ;
-//     pD[currentRound].order = order;
-//   },
-//   clear() { // There might be a better way in JS to do this.
-//     this.gameID = 0;
-//     this.numPlayer = 0;
-//     this.numRound = 0;
-//     this.currentRound = 0;
-//     this.currentRoundCalculated = false;
-//     this.instructorRequestOk = false;
-//     this.gameEnded = false;
-//     this.playerList = [];
-//     this.playerGameData = [];
-//   },
-//   // Only clears game data; number of rounds and player list don't change
-//   gameDataClear() {
-//     this.currentRound = 0;
-//     this.currentRoundCalculated = false;
-//     this.gameEnded = false;
-//     this.playerGameData = [];
-//     this.playerList.map(obj=>{
-//       this.playerGameData.push([]);
-//     })
-//   }
-// };  // keep a record at server. In the future this should be per session.
-
 var gameDataPerInstructor = {}; // {<instructorId> : <serverGameStatus>}
-
-// var gameParam = {
-//   supplyPerPlayer : 12.5,
-//   salePrice : 10,
-//   cost : 2,
-//   getProfit : function () {
-//     return this.salePrice - this.cost;
-//   }
-// };
 
 function GameParam() {
   this.supplyPerPlayer = 12.5;
@@ -401,9 +345,32 @@ router.delete('/deleteGame/:instructor/:gameID', function(req, res) {
   dbGameTable.remove({Time : parseInt(gameId), Instructor : instructor}, function (err, result) {
       if (err)
         console.log(err);
-    });
+  });
   console.log('Instructor ' + instructor + ' just requested to delete game ' + gameId + ', successful.');
   res.send('Success');
+});
+
+router.get('/reloadGame/:instructor/:gameID', function(req, res) {
+  var gameId = req.params.gameID;
+  var instructor = req.params.instructor;
+  var dbGameTable = req.db.get('gameData');
+  var query = {Time : parseInt(gameId)};
+  if (instructor)
+    query.Instructor = instructor;
+  else {
+    res.send('Can\'t reload game for non-instructor.');
+    return ;
+  }
+  dbGameTable.find(query)
+  .then(docs=>{
+    console.log('reloadGame: DB found ' + docs.length + ' records for ' + instructor);
+    if (docs.length === 1)
+      res.send(docs[0]);
+  }, error=> {
+    console.log('DB find failed with error ' + error);
+  });
+  console.log('Instructor ' + instructor + ' just requested to reload game ' + gameId + ', successful.');
+  //res.send('Success');
 });
 
 /*

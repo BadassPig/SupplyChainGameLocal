@@ -377,7 +377,8 @@ function showPrevGameList(event) {
         prevGameTable += '<td>' + obj.NumPlayer + '</td>';
         prevGameTable += '<td>' + obj.NumPeriod + '</td>';
         // You can do button drop down here as well.
-        prevGameTable += '<td><select>' + '<option value="select">Select</option>' + '<option value="view">View</option>' + '<option value="delete">Delete</option>' + '</select></td>';
+        prevGameTable += '<td><select>' + '<option value="select">Select</option>' + '<option value="view">View</option>' + '<option value="delete">Delete</option>' + 
+                         '<option value="reload">Reload</option>' + '</select></td>';
         prevGameTable += '</tr>';
       });
       $('#prevGameListTable tbody').html(prevGameTable);
@@ -415,6 +416,17 @@ function showPrevGameList(event) {
               console.log('Deleting game row ' + (row + 1) + ' failed: ' + textStatus);
             });
           } // if (r)
+        } else if (sel == "reload") {
+          var r = confirm('Do you want to reload previous game? Current game data will be lost if not saved.');
+          if (r) {
+            $.ajax({
+              type: 'GET',
+              url: '/game/reloadGame/' + pageData.instructorID + '/' + selectedGameId
+              //dataType: 'JSON'
+            }).done( function (response) {
+              console.log('Reload ' + selectedGameId + ' successful.');
+            });
+          } // if (r)
         }
       });
     });
@@ -431,7 +443,8 @@ function populatePrevGameList(data) {
     prevGameTable += '<td>' + obj.NumPlayer + '</td>';
     prevGameTable += '<td>' + obj.NumPeriod + '</td>';
     // You can do button drop down here as well.
-    prevGameTable += '<td><select>' + '<option value="select">Select</option>' + '<option value="view">View</option>' + '<option value="delete">Delete</option>' + '</select></td>';
+    prevGameTable += '<td><select>' + '<option value="select">Select</option>' + '<option value="view">View</option>' + '<option value="delete">Delete</option>' + 
+                     '<option value="reload">Reload</option>' + '</select></td>';
     prevGameTable += '</tr>';
   });
   console.log('New game list content ' + prevGameTable);
