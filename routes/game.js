@@ -315,7 +315,12 @@ router.post('/endGame/:instructorID', function(req, res) {
 router.post('/nextRound/:instructorID', function(req, res) {
   var ins = req.params.instructorID;
   var thisData = gameDataPerInstructor[ins];
-  thisData.currentRound ++;
+  if (thisData.currentRoundCalculated) {
+    thisData.currentRound ++;
+    thisData.currentRoundCalculated = false;
+  } else
+    // next round button hit more than once for this instructor, only register one
+    return
   gameGen(thisData);
   res.send(thisData);
   thisData.playerList.map(function(player) {
@@ -486,6 +491,10 @@ function genRandomString(l)
   */
 function calcGameData(instructor, serverGameStatus) {
   console.log('--- calcGameData ---');
+  if (serverGameStatus.currentRoundCalculated) {
+    console.log('Already calcualted round ' + serverGameStatus.currentRound + ' for instructor ' + instructor + ', will not calcualte again.');
+    return ;
+  }
   var c = serverGameStatus.currentRound;
   var totalOrd = 0;
 

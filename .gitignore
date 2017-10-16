@@ -51,3 +51,4 @@ data/
 node_modules/
 journal/
 bin/
+npm-debug.log
